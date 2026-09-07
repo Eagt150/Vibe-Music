@@ -1,0 +1,121 @@
+@import url("https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap");
+@import "tailwindcss";
+
+/* Raw design tokens — dark is the default; [data-theme="light"] overrides. */
+:root {
+  --bg: #0a0a0a;
+  --surface: #141414;
+  --surface-alt: #1c1c1e;
+  --border: rgba(255, 255, 255, 0.08);
+  --text: #f5f5f5;
+  --text-dim: rgba(255, 255, 255, 0.55);
+  --text-faint: rgba(255, 255, 255, 0.32);
+  --input-bg: #1c1c1e;
+  --overlay: rgba(0, 0, 0, 0.55);
+
+  --accent: #2f7dff;
+  --accent-text: #ffffff;
+  --danger: #ff5470;
+  --success: #3ddc97;
+
+  --font-sans: "Manrope", -apple-system, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "SFMono-Regular", Consolas, monospace;
+
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+  --radius-pill: 999px;
+}
+
+[data-theme="light"] {
+  --bg: #ffffff;
+  --surface: #f4f7ff;
+  --surface-alt: #eaf0ff;
+  --border: rgba(10, 10, 25, 0.09);
+  --text: #0a0a0a;
+  --text-dim: rgba(10, 10, 25, 0.55);
+  --text-faint: rgba(10, 10, 25, 0.35);
+  --input-bg: #eef2fb;
+  --overlay: rgba(10, 10, 25, 0.35);
+}
+
+/* Bridge raw tokens into Tailwind's theme so utilities like bg-bg, text-accent,
+   rounded-pill resolve through the swappable custom properties above. */
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-alt: var(--surface-alt);
+  --color-border: var(--border);
+  --color-text: var(--text);
+  --color-text-dim: var(--text-dim);
+  --color-text-faint: var(--text-faint);
+  --color-input-bg: var(--input-bg);
+  --color-overlay: var(--overlay);
+  --color-accent: var(--accent);
+  --color-accent-text: var(--accent-text);
+  --color-danger: var(--danger);
+  --color-success: var(--success);
+
+  --font-family-sans: var(--font-sans);
+  --font-family-mono: var(--font-mono);
+
+  --text-xs: 11px;
+  --text-sm: 12px;
+  --text-base: 13.5px;
+  --text-md: 15px;
+  --text-lg: 17px;
+  --text-xl: 22px;
+  --text-2xl: 28px;
+  --text-3xl: 32px;
+
+  --radius-sm: var(--radius-sm);
+  --radius-md: var(--radius-md);
+  --radius-lg: var(--radius-lg);
+  --radius-xl: var(--radius-xl);
+  --radius-pill: var(--radius-pill);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  background: var(--bg);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+}
+
+input,
+button,
+select,
+textarea {
+  font-family: inherit;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(128, 128, 128, 0.35);
+  border-radius: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* The one motion effect the design system allows: the mobile sidebar drawer slide. */
+.sidebar-drawer {
+  transition: transform 0.25s ease;
+}
