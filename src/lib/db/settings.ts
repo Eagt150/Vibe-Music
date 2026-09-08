@@ -26,7 +26,16 @@ function defaultSettings(): SettingsRecord {
 export async function getSettings(): Promise<SettingsRecord> {
   const db = await getDB();
   const existing = await db.get("settings", SETTINGS_ID);
-  if (existing) return existing;
+  if (existing) {
+    // Rows created before a field existed (e.g. locale, playbackRate) are
+    // never auto-migrated by IndexedDB — backfill defaults for anything
+    // missing and persist so future reads don't need to re-merge.
+    const merged: SettingsRecord = { ...defaultSettings(), ...existing };
+    if (Object.keys(existing).length < Object.keys(merged).length) {
+      await db.put("settings", merged);
+    }
+    return merged;
+  }
   const created = defaultSettings();
   await db.put("settings", created);
   return created;
