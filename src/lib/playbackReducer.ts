@@ -21,6 +21,10 @@ export interface NextDecisionInput {
   repeatMode: RepeatMode;
   playingPlaylistId: string | null;
   orderedSongsInCurrentPlaylist: { id: string }[];
+  /** True when next() was triggered by the current song ending on its own.
+   * Repeat-one only takes over on a natural end — a manual "skip to next"
+   * click should always advance, exactly like every other player. */
+  fromEnded: boolean;
 }
 
 export type NextDecision =
@@ -29,19 +33,19 @@ export type NextDecision =
   | { action: "restart-playlist"; item: QueueItem; queue: QueueItem[] }
   | { action: "stop" };
 
-/** The 4-branch decision for what next() should do, given the current queue
- * and repeat mode: (1) pop the queue if non-empty, (2) restart the same song
- * if repeat-one, (3) rebuild the queue from the top of the playlist if
- * repeat-all, (4) otherwise stop. */
+/** The decision for what next() should do: (1) on a natural end with
+ * repeat-one, restart the same song regardless of the queue, (2) otherwise
+ * pop the queue if non-empty, (3) rebuild the queue from the top of the
+ * playlist if repeat-all and the queue is exhausted, (4) otherwise stop. */
 export function decideNext(input: NextDecisionInput): NextDecision {
-  const { queue, repeatMode, playingPlaylistId, orderedSongsInCurrentPlaylist } = input;
+  const { queue, repeatMode, playingPlaylistId, orderedSongsInCurrentPlaylist, fromEnded } = input;
 
+  if (fromEnded && repeatMode === "one") {
+    return { action: "restart-same" };
+  }
   if (queue.length > 0) {
     const [item, ...remainingQueue] = queue;
     return { action: "play", item, remainingQueue };
-  }
-  if (repeatMode === "one") {
-    return { action: "restart-same" };
   }
   if (repeatMode === "all" && playingPlaylistId && orderedSongsInCurrentPlaylist.length > 0) {
     const [first, ...rest] = orderedSongsInCurrentPlaylist;

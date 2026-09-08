@@ -31,12 +31,13 @@ describe("buildQueue", () => {
 });
 
 describe("decideNext", () => {
-  it("plays the next queued item when the queue is non-empty, regardless of repeat mode", () => {
+  it("plays the next queued item when the queue is non-empty and repeat is off", () => {
     const decision = decideNext({
       queue: [{ playlistId: "p1", songId: "s2" }, { playlistId: "p1", songId: "s3" }],
       repeatMode: "off",
       playingPlaylistId: "p1",
       orderedSongsInCurrentPlaylist: [{ id: "s1" }, { id: "s2" }, { id: "s3" }],
+      fromEnded: false,
     });
     expect(decision).toEqual({
       action: "play",
@@ -45,14 +46,41 @@ describe("decideNext", () => {
     });
   });
 
+  it("restarts the same song on a natural end when repeat-one is active, even with a non-empty queue", () => {
+    const decision = decideNext({
+      queue: [{ playlistId: "p1", songId: "s2" }, { playlistId: "p1", songId: "s3" }],
+      repeatMode: "one",
+      playingPlaylistId: "p1",
+      orderedSongsInCurrentPlaylist: [{ id: "s1" }, { id: "s2" }, { id: "s3" }],
+      fromEnded: true,
+    });
+    expect(decision).toEqual({ action: "restart-same" });
+  });
+
   it("restarts the same song when repeat-one and the queue is empty", () => {
     const decision = decideNext({
       queue: [],
       repeatMode: "one",
       playingPlaylistId: "p1",
       orderedSongsInCurrentPlaylist: [{ id: "s1" }],
+      fromEnded: true,
     });
     expect(decision).toEqual({ action: "restart-same" });
+  });
+
+  it("a manual skip (not fromEnded) still advances the queue even with repeat-one active", () => {
+    const decision = decideNext({
+      queue: [{ playlistId: "p1", songId: "s2" }],
+      repeatMode: "one",
+      playingPlaylistId: "p1",
+      orderedSongsInCurrentPlaylist: [{ id: "s1" }, { id: "s2" }],
+      fromEnded: false,
+    });
+    expect(decision).toEqual({
+      action: "play",
+      item: { playlistId: "p1", songId: "s2" },
+      remainingQueue: [],
+    });
   });
 
   it("rebuilds the queue from the top of the playlist when repeat-all and the queue is empty", () => {
@@ -61,6 +89,7 @@ describe("decideNext", () => {
       repeatMode: "all",
       playingPlaylistId: "p1",
       orderedSongsInCurrentPlaylist: [{ id: "s1" }, { id: "s2" }, { id: "s3" }],
+      fromEnded: true,
     });
     expect(decision).toEqual({
       action: "restart-playlist",
@@ -78,6 +107,7 @@ describe("decideNext", () => {
       repeatMode: "off",
       playingPlaylistId: "p1",
       orderedSongsInCurrentPlaylist: [{ id: "s1" }],
+      fromEnded: true,
     });
     expect(decision).toEqual({ action: "stop" });
   });
