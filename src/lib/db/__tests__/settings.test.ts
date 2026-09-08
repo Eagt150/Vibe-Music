@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { resetFakeIndexedDB } from "./testUtils";
+import { getDB } from "../index";
+import { SETTINGS_ID } from "../schema";
 import {
   detectDefaultLocale,
   getSettings,
@@ -66,6 +68,32 @@ describe("settings", () => {
     const settings = await getSettings();
     expect(settings.volumeLevel).toBe(33);
     expect(settings.theme).toBe("dark");
+  });
+
+  it("backfills defaults for fields missing from a pre-existing row (e.g. a real v1 settings record)", async () => {
+    const db = await getDB();
+    // Simulate a settings row saved before `locale`/`playbackRate` existed —
+    // IndexedDB never retrofits old rows with new fields on its own.
+    await db.put("settings", {
+      id: SETTINGS_ID,
+      theme: "dark",
+      volumeLevel: 50,
+      adFrequency: "off",
+      songsPlayedCounter: 3,
+      recentlyPlayed: [],
+      playbackState: null,
+      // locale and playbackRate intentionally absent
+    } as never);
+
+    const settings = await getSettings();
+    expect(["en", "es"]).toContain(settings.locale);
+    expect(settings.playbackRate).toBe(1);
+    expect(settings.songsPlayedCounter).toBe(3); // pre-existing data preserved
+
+    // The backfill should have been persisted, not just returned once.
+    const reloaded = await db.get("settings", SETTINGS_ID);
+    expect(reloaded?.locale).toBeDefined();
+    expect(reloaded?.playbackRate).toBe(1);
   });
 });
 
