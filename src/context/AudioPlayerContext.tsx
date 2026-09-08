@@ -9,6 +9,7 @@ import {
   updateSettings,
 } from "@/lib/db/settings";
 import { buildQueue, decideNext, decidePrev, pushHistory } from "@/lib/playbackReducer";
+import { fisherYatesShuffle } from "@/lib/shuffle";
 import { useLocale } from "@/i18n/LocaleContext";
 import type { AdFrequency, PlaybackSnapshot, QueueItem, RecentlyPlayedEntry, RepeatMode, SleepTimerOption } from "@/types";
 
@@ -45,7 +46,7 @@ interface AudioPlayerActions {
   setVolume: (level: number) => void;
   setPlaybackRate: (rate: number) => void;
   setSleepTimer: (option: SleepTimerOption) => void;
-  toggleShuffle: () => void;
+  toggleShuffle: () => Promise<void>;
   cycleRepeat: () => void;
   addToQueue: (item: QueueItem) => void;
   removeFromQueue: (index: number) => void;
@@ -249,7 +250,7 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
     patch({ queue });
   }
 
-  async function next() {
+  async function next(opts: { fromEnded?: boolean } = {}) {
     const s = stateRef.current;
     const orderedSongsInCurrentPlaylist = s.playingPlaylistId ? await getSongsForPlaylist(s.playingPlaylistId) : [];
     const decision = decideNext({
@@ -257,6 +258,7 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
       repeatMode: s.repeatMode,
       playingPlaylistId: s.playingPlaylistId,
       orderedSongsInCurrentPlaylist,
+      fromEnded: opts.fromEnded ?? false,
     });
 
     if (decision.action === "play") {
@@ -346,8 +348,31 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
     }, option * 60_000);
   }
 
-  function toggleShuffle() {
-    patch((s) => ({ shuffle: !s.shuffle }));
+  /** Toggling shuffle mid-playback must actually reorder what's left to play,
+   * not just flip a flag nothing reads afterward — turning it on shuffles the
+   * remaining queue in place, turning it off restores the playlist's real
+   * order for whatever's still left in it. */
+  async function toggleShuffle() {
+    const s = stateRef.current;
+    const next = !s.shuffle;
+
+    if (s.queue.length === 0 || !s.playingPlaylistId) {
+      patch({ shuffle: next });
+      return;
+    }
+
+    if (next) {
+      patch({ shuffle: true, queue: fisherYatesShuffle(s.queue) });
+      return;
+    }
+
+    const playlistId = s.playingPlaylistId;
+    const orderedSongs = await getSongsForPlaylist(playlistId);
+    const queuedIds = new Set(s.queue.map((item) => item.songId));
+    const restoredQueue = orderedSongs
+      .filter((song) => queuedIds.has(song.id))
+      .map((song) => ({ playlistId, songId: song.id }));
+    patch({ shuffle: false, queue: restoredQueue });
   }
 
   function cycleRepeat() {
@@ -478,7 +503,7 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
         patch({ sleepTimerOption: "off", sleepTimerEndsAt: null, isPlaying: false });
         return;
       }
-      void next();
+      void next({ fromEnded: true });
     }
 
     function handleError() {
