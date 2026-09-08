@@ -1,5 +1,6 @@
 import { getDB } from "./index";
 import { hashBlob, releaseCover, upsertCoverInTx } from "./covers";
+import { isFuzzyDuplicate } from "@/lib/duplicateMatch";
 import type { SongRecord } from "./schema";
 import type { NewSongInput } from "@/types";
 
@@ -28,6 +29,23 @@ export async function getAudioBlob(songId: string): Promise<Blob | undefined> {
   return record?.audioBlob;
 }
 
+/** Checks whether a song already exists in the library: first by exact
+ * content hash (certain — the same file bytes), then by fuzzy title/artist/
+ * duration match (catches the same song from a different rip/encode). Checks
+ * across the whole library, not just one playlist, since importing the same
+ * song into two different playlists is still worth flagging. */
+export async function findDuplicateSong(
+  contentHash: string,
+  candidate: { title: string; artist: string; durationSec: number }
+): Promise<SongRecord | undefined> {
+  const db = await getDB();
+  const exact = await db.getFromIndex("songs", "by_contentHash", contentHash);
+  if (exact) return exact;
+
+  const all = await db.getAll("songs");
+  return all.find((s) => isFuzzyDuplicate(s, candidate));
+}
+
 /** Inserts one song's metadata + audio blob + (optional) cover reference in a
  * single atomic transaction across 3 stores: if writing the audio blob fails
  * (e.g. QuotaExceededError), the whole transaction rolls back — no orphaned
@@ -40,6 +58,7 @@ export async function addSong(playlistId: string, input: NewSongInput): Promise<
   // BEFORE the transaction opens, otherwise the browser can auto-close the
   // transaction while we're waiting on it.
   const embeddedCoverHash = input.embeddedCoverBlob ? await hashBlob(input.embeddedCoverBlob) : undefined;
+  const contentHash = input.contentHash ?? (await hashBlob(input.audioBlob));
 
   const record: SongRecord = {
     id: crypto.randomUUID(),
@@ -51,6 +70,7 @@ export async function addSong(playlistId: string, input: NewSongInput): Promise<
     orderIndex: nextOrderIndex,
     mimeType: input.mimeType,
     embeddedCoverHash,
+    contentHash,
   };
 
   const tx = db.transaction(["songs", "audio_files", "covers"], "readwrite");
@@ -73,9 +93,10 @@ export async function addSongs(playlistId: string, items: NewSongInput[]): Promi
   const db = await getDB();
   let nextOrderIndex = await countSongsForPlaylist(playlistId);
 
-  const hashes = await Promise.all(
+  const coverHashes = await Promise.all(
     items.map((item) => (item.embeddedCoverBlob ? hashBlob(item.embeddedCoverBlob) : Promise.resolve(undefined)))
   );
+  const contentHashes = await Promise.all(items.map((item) => item.contentHash ?? hashBlob(item.audioBlob)));
 
   const records: SongRecord[] = items.map((input, i) => ({
     id: crypto.randomUUID(),
@@ -86,12 +107,13 @@ export async function addSongs(playlistId: string, items: NewSongInput[]): Promi
     favorite: false,
     orderIndex: nextOrderIndex++,
     mimeType: input.mimeType,
-    embeddedCoverHash: hashes[i],
+    embeddedCoverHash: coverHashes[i],
+    contentHash: contentHashes[i],
   }));
 
   const tx = db.transaction(["songs", "audio_files", "covers"], "readwrite");
   for (let i = 0; i < items.length; i++) {
-    const hash = hashes[i];
+    const hash = coverHashes[i];
     const coverBlob = items[i].embeddedCoverBlob;
     if (hash && coverBlob) await upsertCoverInTx(tx, hash, coverBlob);
     await tx.objectStore("songs").put(records[i]);
@@ -133,4 +155,14 @@ export async function reorderSongs(playlistId: string, orderedSongIds: string[])
     }
   }
   await tx.done;
+}
+
+/** Moves a song to a different playlist — just repoints playlistId and
+ * appends it to the end of the destination, no audio/cover data is touched. */
+export async function moveSongToPlaylist(songId: string, targetPlaylistId: string): Promise<void> {
+  const db = await getDB();
+  const record = await db.get("songs", songId);
+  if (!record || record.playlistId === targetPlaylistId) return;
+  const nextOrderIndex = await countSongsForPlaylist(targetPlaylistId);
+  await db.put("songs", { ...record, playlistId: targetPlaylistId, orderIndex: nextOrderIndex });
 }

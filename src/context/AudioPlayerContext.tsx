@@ -9,7 +9,8 @@ import {
   updateSettings,
 } from "@/lib/db/settings";
 import { buildQueue, decideNext, decidePrev, pushHistory } from "@/lib/playbackReducer";
-import type { AdFrequency, PlaybackSnapshot, QueueItem, RecentlyPlayedEntry, RepeatMode } from "@/types";
+import { useLocale } from "@/i18n/LocaleContext";
+import type { AdFrequency, PlaybackSnapshot, QueueItem, RecentlyPlayedEntry, RepeatMode, SleepTimerOption } from "@/types";
 
 interface AudioPlayerState {
   playingPlaylistId: string | null;
@@ -19,6 +20,7 @@ interface AudioPlayerState {
   progressSec: number;
   durationSec: number;
   volumeLevel: number;
+  playbackRate: number;
   shuffle: boolean;
   repeatMode: RepeatMode;
   queue: QueueItem[];
@@ -27,6 +29,8 @@ interface AudioPlayerState {
   error: string | null;
   pendingAd: boolean;
   adFrequency: AdFrequency;
+  sleepTimerOption: SleepTimerOption;
+  sleepTimerEndsAt: number | null;
 }
 
 interface AudioPlayerActions {
@@ -39,6 +43,8 @@ interface AudioPlayerActions {
   seek: (sec: number) => void;
   seekByRatio: (ratio: number) => void;
   setVolume: (level: number) => void;
+  setPlaybackRate: (rate: number) => void;
+  setSleepTimer: (option: SleepTimerOption) => void;
   toggleShuffle: () => void;
   cycleRepeat: () => void;
   addToQueue: (item: QueueItem) => void;
@@ -47,6 +53,7 @@ interface AudioPlayerActions {
   dismissAd: () => void;
   clearError: () => void;
   pruneReferences: (playlistId: string, songId?: string) => void;
+  repointPlaylistReferences: (songId: string, fromPlaylistId: string, toPlaylistId: string) => void;
   setAdFrequency: (freq: AdFrequency) => void;
 }
 
@@ -62,6 +69,7 @@ const initialState: AudioPlayerState = {
   progressSec: 0,
   durationSec: 0,
   volumeLevel: 70,
+  playbackRate: 1,
   shuffle: false,
   repeatMode: "off",
   queue: [],
@@ -70,12 +78,20 @@ const initialState: AudioPlayerState = {
   error: null,
   pendingAd: false,
   adFrequency: "off",
+  sleepTimerOption: "off",
+  sleepTimerEndsAt: null,
 };
 
 export function AudioPlayerProvider({ children }: { children: ReactNode }) {
+  const { t } = useLocale();
   const [state, setState] = useState<AudioPlayerState>(initialState);
   const stateRef = useRef(state);
   stateRef.current = state;
+  // The audio-element event wiring effect below only runs once on mount, so
+  // it can't close over a fresh `t` after a language switch — this ref keeps
+  // it current without needing to re-run that effect.
+  const tRef = useRef(t);
+  tRef.current = t;
 
   function patch(update: Partial<AudioPlayerState> | ((s: AudioPlayerState) => Partial<AudioPlayerState>)) {
     setState((current) => ({ ...current, ...(typeof update === "function" ? update(current) : update) }));
@@ -92,6 +108,14 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
   const pendingSeekRef = useRef<number | null>(null);
   const snapshotTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const volumeDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const sleepTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function clearSleepTimer() {
+    if (sleepTimerRef.current) {
+      clearTimeout(sleepTimerRef.current);
+      sleepTimerRef.current = null;
+    }
+  }
 
   function revokeCurrentUrl() {
     if (objectUrlRef.current) {
@@ -133,7 +157,7 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
     const song = await getSong(songId);
     const blob = await getAudioBlob(songId);
     if (!song || !blob) {
-      patch({ error: "This song could not be found — it may have been deleted." });
+      patch({ error: t("errors.songNotFound") });
       return;
     }
 
@@ -142,6 +166,7 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
     objectUrlRef.current = url;
     pendingSeekRef.current = opts.seekTo ?? null;
     audio.src = url;
+    audio.playbackRate = stateRef.current.playbackRate;
     audio.load();
 
     patch({
@@ -294,6 +319,33 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
     volumeDebounceRef.current = setTimeout(() => void updateSettings({ volumeLevel: clamped }), 400);
   }
 
+  function setPlaybackRate(rate: number) {
+    audioElRef.current!.playbackRate = rate;
+    patch({ playbackRate: rate });
+    void updateSettings({ playbackRate: rate });
+  }
+
+  /** 15/30/60 schedules a real timeout that pauses playback when it fires.
+   * "end-of-track" is handled specially in the `ended` listener below —
+   * it pauses at the natural end of the current song instead of on a timer. */
+  function setSleepTimer(option: SleepTimerOption) {
+    clearSleepTimer();
+    if (option === "off") {
+      patch({ sleepTimerOption: "off", sleepTimerEndsAt: null });
+      return;
+    }
+    if (option === "end-of-track") {
+      patch({ sleepTimerOption: "end-of-track", sleepTimerEndsAt: null });
+      return;
+    }
+    const endsAt = Date.now() + option * 60_000;
+    patch({ sleepTimerOption: option, sleepTimerEndsAt: endsAt });
+    sleepTimerRef.current = setTimeout(() => {
+      audioElRef.current?.pause();
+      patch({ sleepTimerOption: "off", sleepTimerEndsAt: null });
+    }, option * 60_000);
+  }
+
   function toggleShuffle() {
     patch((s) => ({ shuffle: !s.shuffle }));
   }
@@ -369,6 +421,28 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  /** Called by LibraryContext when a song is moved to a different playlist —
+   * unlike pruneReferences, the song still exists, so this repoints any
+   * queue/history/recently-played/now-playing reference to the new
+   * playlistId instead of removing it (playback of that song, if it's the
+   * one currently playing, is left running uninterrupted). */
+  function repointPlaylistReferences(songId: string, fromPlaylistId: string, toPlaylistId: string) {
+    const remap = (item: QueueItem): QueueItem =>
+      item.playlistId === fromPlaylistId && item.songId === songId ? { ...item, playlistId: toPlaylistId } : item;
+
+    patch((current) => ({
+      queue: current.queue.map(remap),
+      playHistory: current.playHistory.map(remap),
+      recentlyPlayed: current.recentlyPlayed.map((r) =>
+        r.playlistId === fromPlaylistId && r.songId === songId ? { ...r, playlistId: toPlaylistId } : r
+      ),
+      playingPlaylistId:
+        current.playingPlaylistId === fromPlaylistId && current.playingSongId === songId
+          ? toPlaylistId
+          : current.playingPlaylistId,
+    }));
+  }
+
   // ---- one-time <audio> element event wiring ----
   useEffect(() => {
     const audio = audioElRef.current!;
@@ -399,11 +473,16 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
     }
 
     function handleEnded() {
+      if (stateRef.current.sleepTimerOption === "end-of-track") {
+        clearSleepTimer();
+        patch({ sleepTimerOption: "off", sleepTimerEndsAt: null, isPlaying: false });
+        return;
+      }
       void next();
     }
 
     function handleError() {
-      patch({ error: "Could not play this track — the file may be corrupted or unsupported.", isLoading: false });
+      patch({ error: tRef.current("errors.playbackError"), isLoading: false });
       setTimeout(() => void next(), 800);
     }
 
@@ -417,6 +496,13 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
       patch({ isPlaying: false });
       void saveSnapshotNow();
     }
+    // Hardware media keys (headphones, Bluetooth controls, OS lock-screen)
+    // call audio.play()/pause() directly without going through
+    // togglePlayPause() — without this listener, isPlaying (and the button
+    // icon) never finds out playback actually resumed.
+    function handlePlay() {
+      patch({ isPlaying: true });
+    }
 
     audio.addEventListener("timeupdate", handleTimeUpdate);
     audio.addEventListener("loadedmetadata", handleLoadedMetadata);
@@ -425,6 +511,7 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
     audio.addEventListener("waiting", handleWaiting);
     audio.addEventListener("canplay", handleCanPlay);
     audio.addEventListener("pause", handlePause);
+    audio.addEventListener("play", handlePlay);
 
     return () => {
       audio.removeEventListener("timeupdate", handleTimeUpdate);
@@ -434,17 +521,58 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
       audio.removeEventListener("waiting", handleWaiting);
       audio.removeEventListener("canplay", handleCanPlay);
       audio.removeEventListener("pause", handlePause);
+      audio.removeEventListener("play", handlePlay);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally mount-once; all handlers read live values via stateRef/refs, never stale render-scoped state.
   }, []);
+
+  // ---- MediaSession: hardware media keys (headphones, Bluetooth, lock screen) ----
+  useEffect(() => {
+    if (!("mediaSession" in navigator)) return;
+
+    navigator.mediaSession.setActionHandler("play", () => void audioElRef.current?.play());
+    navigator.mediaSession.setActionHandler("pause", () => audioElRef.current?.pause());
+    navigator.mediaSession.setActionHandler("previoustrack", () => void prev());
+    navigator.mediaSession.setActionHandler("nexttrack", () => void next());
+
+    return () => {
+      navigator.mediaSession.setActionHandler("play", null);
+      navigator.mediaSession.setActionHandler("pause", null);
+      navigator.mediaSession.setActionHandler("previoustrack", null);
+      navigator.mediaSession.setActionHandler("nexttrack", null);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally mount-once; prev/next read live values via stateRef/refs.
+  }, []);
+
+  // Keeps the lock-screen/headset "now playing" info and play/pause
+  // indicator in sync with the actual current song and playback state.
+  useEffect(() => {
+    if (!("mediaSession" in navigator)) return;
+    const songId = state.playingSongId;
+    if (!songId) {
+      navigator.mediaSession.metadata = null;
+      return;
+    }
+    void getSong(songId).then((song) => {
+      if (!song) return;
+      navigator.mediaSession.metadata = new MediaMetadata({ title: song.title, artist: song.artist });
+    });
+  }, [state.playingSongId]);
+
+  useEffect(() => {
+    if (!("mediaSession" in navigator)) return;
+    navigator.mediaSession.playbackState = state.isPlaying ? "playing" : "paused";
+  }, [state.isPlaying]);
 
   // ---- hydrate settings + any persisted playback session on mount ----
   useEffect(() => {
     void (async () => {
       const settings = await getSettings();
       audioElRef.current!.volume = settings.volumeLevel / 100;
+      audioElRef.current!.playbackRate = settings.playbackRate;
       patch({
         volumeLevel: settings.volumeLevel,
+        playbackRate: settings.playbackRate,
         adFrequency: settings.adFrequency,
         recentlyPlayed: settings.recentlyPlayed,
       });
@@ -464,6 +592,8 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- run once on mount only.
   }, []);
 
+  useEffect(() => clearSleepTimer, []);
+
   const value: AudioPlayerContextValue = {
     ...state,
     playPlaylist,
@@ -475,6 +605,8 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
     seek,
     seekByRatio,
     setVolume,
+    setPlaybackRate,
+    setSleepTimer,
     toggleShuffle,
     cycleRepeat,
     addToQueue,
@@ -483,6 +615,7 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
     dismissAd,
     clearError,
     pruneReferences,
+    repointPlaylistReferences,
     setAdFrequency,
   };
 

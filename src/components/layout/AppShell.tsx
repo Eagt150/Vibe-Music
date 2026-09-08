@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useLibrary } from "@/context/LibraryContext";
 import { useUiState } from "@/context/UiStateContext";
+import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { Sidebar } from "@/components/sidebar/Sidebar";
 import { HomeView } from "@/components/home/HomeView";
 import { PlaylistView } from "@/components/playlist/PlaylistView";
@@ -9,11 +10,13 @@ import { FullScreenPlayer } from "@/components/player/FullScreenPlayer";
 import { QueuePanel } from "@/components/player/QueuePanel";
 import { AdSlot } from "@/components/ads/AdSlot";
 import { ErrorBanner } from "@/components/ui/ErrorBanner";
+import { ImportProgressToast } from "@/components/ui/ImportProgressToast";
 import { TopBar } from "./TopBar";
 
 export function AppShell() {
   const { playlists, isLoading } = useLibrary();
   const { route, navigateHome, importError, setImportError } = useUiState();
+  useKeyboardShortcuts();
 
   // If the currently viewed playlist gets deleted, bounce back to Home
   // instead of rendering a stale/blank playlist view.
@@ -44,6 +47,7 @@ export function AppShell() {
       <FullScreenPlayer />
       <QueuePanel />
       <AdSlot />
+      <ImportProgressToast />
     </div>
   );
 }

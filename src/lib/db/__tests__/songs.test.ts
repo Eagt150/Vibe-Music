@@ -5,8 +5,10 @@ import {
   addSong,
   addSongs,
   deleteSong,
+  findDuplicateSong,
   getAudioBlob,
   getSongsForPlaylist,
+  moveSongToPlaylist,
   reorderSongs,
   updateSongFavorite,
 } from "../songs";
@@ -109,5 +111,78 @@ describe("songs", () => {
     await updateSongFavorite(song.id, true);
     const [reloaded] = await getSongsForPlaylist(playlist.id);
     expect(reloaded.favorite).toBe(true);
+  });
+
+  it("findDuplicateSong finds an exact re-import by content hash", async () => {
+    const playlist = await createPlaylist("P");
+    const original = await addSong(playlist.id, {
+      title: "Soft Static",
+      artist: "Nova Reyes",
+      durationSec: 192,
+      audioBlob: makeBlob("identical-bytes"),
+      mimeType: "audio/mpeg",
+    });
+
+    const found = await findDuplicateSong(original.contentHash!, {
+      title: "Completely Different Title",
+      artist: "Different Artist",
+      durationSec: 1,
+    });
+    expect(found?.id).toBe(original.id);
+  });
+
+  it("findDuplicateSong finds a fuzzy match (different bytes, same title/artist/duration)", async () => {
+    const playlist = await createPlaylist("P");
+    const original = await addSong(playlist.id, {
+      title: "Soft Static",
+      artist: "Nova Reyes",
+      durationSec: 192,
+      audioBlob: makeBlob("bytes-a"),
+      mimeType: "audio/mpeg",
+    });
+
+    const found = await findDuplicateSong("some-other-hash", {
+      title: "soft static",
+      artist: "NOVA REYES",
+      durationSec: 193,
+    });
+    expect(found?.id).toBe(original.id);
+  });
+
+  it("findDuplicateSong returns undefined when nothing matches", async () => {
+    const playlist = await createPlaylist("P");
+    await addSong(playlist.id, {
+      title: "Soft Static",
+      artist: "Nova Reyes",
+      durationSec: 192,
+      audioBlob: makeBlob("bytes-a"),
+      mimeType: "audio/mpeg",
+    });
+
+    const found = await findDuplicateSong("unrelated-hash", {
+      title: "Paper Clouds",
+      artist: "Kai Loom",
+      durationSec: 178,
+    });
+    expect(found).toBeUndefined();
+  });
+
+  it("moveSongToPlaylist repoints playlistId and appends to the destination's order", async () => {
+    const from = await createPlaylist("From");
+    const to = await createPlaylist("To");
+    await addSongs(to.id, [{ title: "Existing", artist: "x", durationSec: 1, audioBlob: makeBlob("e"), mimeType: "audio/mpeg" }]);
+    const song = await addSong(from.id, {
+      title: "Movable",
+      artist: "x",
+      durationSec: 1,
+      audioBlob: makeBlob("m"),
+      mimeType: "audio/mpeg",
+    });
+
+    await moveSongToPlaylist(song.id, to.id);
+
+    expect(await getSongsForPlaylist(from.id)).toHaveLength(0);
+    const toSongs = await getSongsForPlaylist(to.id);
+    expect(toSongs.map((s) => s.title)).toEqual(["Existing", "Movable"]);
   });
 });

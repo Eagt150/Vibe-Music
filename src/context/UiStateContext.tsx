@@ -13,6 +13,9 @@ interface UiStateContextValue {
   importError: string | null;
   setImportError: (message: string | null) => void;
 
+  importProgress: { completed: number; total: number } | null;
+  setImportProgress: (progress: { completed: number; total: number } | null) => void;
+
   isFullScreenOpen: boolean;
   openFullScreen: () => void;
   closeFullScreen: () => void;
@@ -36,6 +39,7 @@ export function UiStateProvider({ children }: { children: ReactNode }) {
   const [route, setRoute] = useState<Route>({ type: "home" });
   const [searchQuery, setSearchQuery] = useState("");
   const [importError, setImportError] = useState<string | null>(null);
+  const [importProgress, setImportProgress] = useState<{ completed: number; total: number } | null>(null);
   const [isFullScreenOpen, setFullScreenOpen] = useState(false);
   const [isQueueOpen, setQueueOpen] = useState(false);
   const [isMobileSidebarOpen, setMobileSidebarOpen] = useState(false);
@@ -61,6 +65,9 @@ export function UiStateProvider({ children }: { children: ReactNode }) {
 
     importError,
     setImportError,
+
+    importProgress,
+    setImportProgress,
 
     isFullScreenOpen,
     openFullScreen: () => setFullScreenOpen(true),

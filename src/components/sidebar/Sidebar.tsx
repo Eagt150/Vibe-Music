@@ -3,6 +3,7 @@ import { Home as HomeIcon, Plus, X } from "lucide-react";
 import { useLibrary } from "@/context/LibraryContext";
 import { useUiState } from "@/context/UiStateContext";
 import { useIsMobile } from "@/hooks/useMediaQuery";
+import { useLocale } from "@/i18n/LocaleContext";
 import { cn } from "@/lib/cn";
 import { CreatePlaylistInlineForm } from "./CreatePlaylistInlineForm";
 import { SidebarPlaylistItem } from "./SidebarPlaylistItem";
@@ -11,6 +12,7 @@ export function Sidebar() {
   const { playlists, songsByPlaylist, createPlaylist } = useLibrary();
   const { route, navigateHome, navigateToPlaylist, isMobileSidebarOpen, closeMobileSidebar } = useUiState();
   const isMobile = useIsMobile();
+  const { t } = useLocale();
   const [isCreating, setIsCreating] = useState(false);
 
   async function handleCreate(name: string) {
@@ -31,7 +33,7 @@ export function Sidebar() {
             type="button"
             onClick={closeMobileSidebar}
             className="text-text-dim cursor-pointer p-1"
-            aria-label="Close menu"
+            aria-label={t("sidebar.closeMenu")}
           >
             <X size={16} />
           </button>
@@ -47,17 +49,17 @@ export function Sidebar() {
         )}
       >
         <HomeIcon size={14} />
-        <span>Home</span>
+        <span>{t("sidebar.home")}</span>
       </button>
 
       <div className="flex items-center justify-between px-2.5 pt-4.5 pb-1.5">
-        <span className="text-sm font-bold tracking-wide text-text-faint uppercase">My Playlists</span>
+        <span className="text-sm font-bold tracking-wide text-text-faint uppercase">{t("sidebar.myPlaylists")}</span>
         <button
           type="button"
           onClick={() => setIsCreating(true)}
           className="text-text-dim hover:text-text cursor-pointer p-1"
-          title="New playlist"
-          aria-label="New playlist"
+          title={t("sidebar.newPlaylist")}
+          aria-label={t("sidebar.newPlaylist")}
         >
           <Plus size={14} />
         </button>

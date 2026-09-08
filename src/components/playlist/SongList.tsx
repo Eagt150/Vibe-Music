@@ -9,9 +9,20 @@ interface SongListProps {
   onToggleFavorite: (songId: string) => void;
   onPlaySong: (songId: string) => void;
   onReorder: (orderedSongIds: string[]) => void;
+  onMoveToPlaylist: (songId: string) => void;
+  onDelete: (songId: string) => void;
 }
 
-export function SongList({ songs, playingSongId, isPlaying, onToggleFavorite, onPlaySong, onReorder }: SongListProps) {
+export function SongList({
+  songs,
+  playingSongId,
+  isPlaying,
+  onToggleFavorite,
+  onPlaySong,
+  onReorder,
+  onMoveToPlaylist,
+  onDelete,
+}: SongListProps) {
   const { getHandlers } = useDragReorder((from, to) => {
     const ids = songs.map((s) => s.id);
     const [moved] = ids.splice(from, 1);
@@ -30,6 +41,8 @@ export function SongList({ songs, playingSongId, isPlaying, onToggleFavorite, on
           isPlaying={isPlaying}
           onToggleFavorite={() => onToggleFavorite(song.id)}
           onPlayToggle={() => onPlaySong(song.id)}
+          onMoveToPlaylist={() => onMoveToPlaylist(song.id)}
+          onDelete={() => onDelete(song.id)}
           dragHandlers={getHandlers(i)}
         />
       ))}

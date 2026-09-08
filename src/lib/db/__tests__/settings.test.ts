@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { resetFakeIndexedDB } from "./testUtils";
 import {
+  detectDefaultLocale,
   getSettings,
   incrementSongsPlayedCounter,
   loadPlaybackSnapshot,
@@ -20,6 +21,8 @@ describe("settings", () => {
     expect(settings.adFrequency).toBe("off");
     expect(settings.playbackState).toBeNull();
     expect(settings.recentlyPlayed).toEqual([]);
+    expect(settings.playbackRate).toBe(1);
+    expect(["en", "es"]).toContain(settings.locale);
   });
 
   it("caps recentlyPlayed at 8 and dedupes by playlist+song", async () => {
@@ -63,5 +66,21 @@ describe("settings", () => {
     const settings = await getSettings();
     expect(settings.volumeLevel).toBe(33);
     expect(settings.theme).toBe("dark");
+  });
+});
+
+describe("detectDefaultLocale", () => {
+  it("picks 'es' when navigator.language starts with es", () => {
+    const original = navigator.language;
+    Object.defineProperty(navigator, "language", { value: "es-MX", configurable: true });
+    expect(detectDefaultLocale()).toBe("es");
+    Object.defineProperty(navigator, "language", { value: original, configurable: true });
+  });
+
+  it("picks 'en' for any non-Spanish language", () => {
+    const original = navigator.language;
+    Object.defineProperty(navigator, "language", { value: "fr-FR", configurable: true });
+    expect(detectDefaultLocale()).toBe("en");
+    Object.defineProperty(navigator, "language", { value: original, configurable: true });
   });
 });

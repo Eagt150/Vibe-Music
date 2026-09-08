@@ -3,10 +3,12 @@ import { CoverArt } from "@/components/ui/CoverArt";
 import { useAudioPlayer } from "@/context/AudioPlayerContext";
 import { useLibrary } from "@/context/LibraryContext";
 import { useUiState } from "@/context/UiStateContext";
+import { useLocale } from "@/i18n/LocaleContext";
 import { PlayerBarControls } from "./PlayerBarControls";
 import { ProgressBar } from "./ProgressBar";
 
 export function FullScreenPlayer() {
+  const { t } = useLocale();
   const { isFullScreenOpen, closeFullScreen, toggleQueue } = useUiState();
   const { playingPlaylistId, playingSongId, progressSec, durationSec, seek, seekByRatio } = useAudioPlayer();
   const { playlists, songsByPlaylist, toggleFavorite } = useLibrary();
@@ -20,11 +22,11 @@ export function FullScreenPlayer() {
   return (
     <div className="fixed inset-0 z-[60] bg-bg text-text flex flex-col items-center px-5 pt-7 pb-10 md:px-10 overflow-y-auto">
       <div className="flex items-center justify-between w-full max-w-[480px]">
-        <button type="button" onClick={closeFullScreen} className="cursor-pointer text-text" aria-label="Collapse">
+        <button type="button" onClick={closeFullScreen} className="cursor-pointer text-text" aria-label={t("player.collapse")}>
           <ChevronDown size={22} />
         </button>
-        <div className="text-sm font-bold tracking-wider text-text-dim">NOW PLAYING</div>
-        <button type="button" onClick={toggleQueue} className="cursor-pointer text-text" aria-label="Queue">
+        <div className="text-sm font-bold tracking-wider text-text-dim">{t("player.nowPlaying")}</div>
+        <button type="button" onClick={toggleQueue} className="cursor-pointer text-text" aria-label={t("queue.title")}>
           <Menu size={20} />
         </button>
       </div>
@@ -50,7 +52,7 @@ export function FullScreenPlayer() {
         className="mt-7 flex items-center gap-1.5 border border-border rounded-pill px-4.5 py-2 text-sm font-semibold cursor-pointer"
       >
         <Heart size={14} fill={song.favorite ? "currentColor" : "none"} className={song.favorite ? "text-accent" : ""} />
-        Favorite
+        {t("player.favorite")}
       </button>
     </div>
   );

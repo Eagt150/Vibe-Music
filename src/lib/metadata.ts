@@ -14,11 +14,12 @@ function titleFromFileName(fileName: string): string {
 }
 
 /** Reads ID3/Vorbis/MP4 tags for title/artist/embedded cover art. Falls back
- * to a filename-derived title + "Unknown Artist" when tags are missing or
+ * to a filename-derived title + `unknownArtistLabel` when tags are missing or
  * unparseable — this never throws, importing an untagged file always
- * succeeds with reasonable defaults. */
-export async function extractMetadata(file: File): Promise<ExtractedMetadata> {
-  const fallback: ExtractedMetadata = { title: titleFromFileName(file.name), artist: "Unknown Artist" };
+ * succeeds with reasonable defaults. The label is passed in (rather than
+ * hardcoded) so it's stored in whichever language was active at import time. */
+export async function extractMetadata(file: File, unknownArtistLabel = "Unknown Artist"): Promise<ExtractedMetadata> {
+  const fallback: ExtractedMetadata = { title: titleFromFileName(file.name), artist: unknownArtistLabel };
   try {
     const parsed = await parseBlob(file);
     const common = parsed.common;
