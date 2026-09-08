@@ -27,6 +27,22 @@ export function getDB(): Promise<IDBPDatabase<VibeMusicDB>> {
           transaction.objectStore("songs").createIndex("by_contentHash", "contentHash");
         }
       },
+      blocking() {
+        // Another tab/window is trying to open a newer version of this
+        // database. Close our connection so that upgrade can proceed;
+        // without this, the other tab's openDB() hangs forever waiting
+        // for us to release the old connection.
+        dbPromise?.then((db) => db.close());
+        dbPromise = null;
+      },
+      blocked() {
+        // A stale connection elsewhere is preventing us from upgrading.
+        // Nothing to recover from here without user action (closing the
+        // other tab), but we at least surface it instead of hanging silently.
+        console.warn(
+          "IndexedDB upgrade blocked by another open tab. Close other tabs of this app and reload."
+        );
+      },
     });
   }
   return dbPromise;
