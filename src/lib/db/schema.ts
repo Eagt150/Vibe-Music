@@ -1,5 +1,5 @@
 import type { DBSchema } from "idb";
-import type { AdFrequency, PlaybackSnapshot, RecentlyPlayedEntry, Theme } from "@/types";
+import type { AdFrequency, Locale, PlaybackSnapshot, RecentlyPlayedEntry, Theme } from "@/types";
 
 /** Internal DB records — these carry Blobs and never leave the db/ layer directly. */
 export interface PlaylistRecord {
@@ -23,6 +23,11 @@ export interface SongRecord {
   orderIndex: number;
   mimeType: string;
   embeddedCoverHash?: string;
+  /** SHA-256 of the audio Blob's bytes — lets duplicate-import detection find
+   * an exact re-import in O(1) via the by_contentHash index. Songs imported
+   * before this field existed simply have no hash and are only matched by
+   * the fuzzy title/artist/duration check. */
+  contentHash?: string;
 }
 
 export interface AudioFileRecord {
@@ -43,7 +48,9 @@ export const SETTINGS_ID = "app-settings" as const;
 export interface SettingsRecord {
   id: typeof SETTINGS_ID;
   theme: Theme;
+  locale: Locale;
   volumeLevel: number;
+  playbackRate: number;
   adFrequency: AdFrequency;
   songsPlayedCounter: number;
   recentlyPlayed: RecentlyPlayedEntry[];
@@ -59,7 +66,7 @@ export interface VibeMusicDB extends DBSchema {
   songs: {
     key: string;
     value: SongRecord;
-    indexes: { by_playlistId: string; by_playlist_order: [string, number] };
+    indexes: { by_playlistId: string; by_playlist_order: [string, number]; by_contentHash: string };
   };
   audio_files: {
     key: string;
@@ -76,4 +83,4 @@ export interface VibeMusicDB extends DBSchema {
 }
 
 export const DB_NAME = "vibe-music";
-export const DB_VERSION = 1;
+export const DB_VERSION = 2;

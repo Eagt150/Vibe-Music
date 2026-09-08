@@ -1,14 +1,21 @@
 import { getDB } from "./index";
 import { SETTINGS_ID, type SettingsRecord } from "./schema";
-import type { PlaybackSnapshot, RecentlyPlayedEntry } from "@/types";
+import type { Locale, PlaybackSnapshot, RecentlyPlayedEntry } from "@/types";
 
 const RECENTLY_PLAYED_CAP = 8;
+
+export function detectDefaultLocale(): Locale {
+  if (typeof navigator === "undefined") return "en";
+  return navigator.language?.toLowerCase().startsWith("es") ? "es" : "en";
+}
 
 function defaultSettings(): SettingsRecord {
   return {
     id: SETTINGS_ID,
     theme: "dark",
+    locale: detectDefaultLocale(),
     volumeLevel: 70,
+    playbackRate: 1,
     adFrequency: "off",
     songsPlayedCounter: 0,
     recentlyPlayed: [],

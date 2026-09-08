@@ -1,6 +1,10 @@
 export type Theme = "dark" | "light";
 export type RepeatMode = "off" | "all" | "one";
 export type AdFrequency = 1 | 5 | 10 | 20 | "off";
+export type Locale = "en" | "es";
+export const PLAYBACK_RATES = [0.75, 1, 1.25, 1.5, 2] as const;
+export type PlaybackRate = (typeof PLAYBACK_RATES)[number];
+export type SleepTimerOption = 15 | 30 | 60 | "end-of-track" | "off";
 
 /** UI-facing playlist shape — never carries Blobs. */
 export interface PlaylistMeta {
@@ -23,6 +27,7 @@ export interface SongMeta {
   orderIndex: number;
   mimeType: string;
   embeddedCoverHash?: string;
+  contentHash?: string;
 }
 
 export interface QueueItem {
@@ -53,4 +58,7 @@ export interface NewSongInput {
   audioBlob: Blob;
   mimeType: string;
   embeddedCoverBlob?: Blob;
+  /** Precomputed SHA-256 of audioBlob, if the caller already needed it (e.g.
+   * duplicate detection during import) — avoids hashing the same bytes twice. */
+  contentHash?: string;
 }

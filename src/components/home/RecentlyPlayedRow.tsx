@@ -1,4 +1,5 @@
 import { CoverArt } from "@/components/ui/CoverArt";
+import { useLocale } from "@/i18n/LocaleContext";
 import type { PlaylistMeta, RecentlyPlayedEntry, SongMeta } from "@/types";
 
 interface RecentlyPlayedRowProps {
@@ -9,6 +10,7 @@ interface RecentlyPlayedRowProps {
 }
 
 export function RecentlyPlayedRow({ entries, playlists, songsByPlaylist, onPlay }: RecentlyPlayedRowProps) {
+  const { t } = useLocale();
   const resolved = entries
     .map((entry) => {
       const playlist = playlists.find((p) => p.id === entry.playlistId);
@@ -21,7 +23,7 @@ export function RecentlyPlayedRow({ entries, playlists, songsByPlaylist, onPlay 
 
   return (
     <>
-      <div className="text-base font-bold text-text-dim uppercase tracking-wide mt-8 mb-3.5">Recently Played</div>
+      <div className="text-base font-bold text-text-dim uppercase tracking-wide mt-8 mb-3.5">{t("home.recentlyPlayed")}</div>
       <div className="flex gap-3.5 overflow-x-auto pb-1.5">
         {resolved.map(({ entry, playlist, song }) => (
           <button

@@ -1,5 +1,6 @@
 import { GripVertical, X } from "lucide-react";
 import { formatDuration } from "@/lib/format";
+import { useLocale } from "@/i18n/LocaleContext";
 import type { DragHandlers } from "@/hooks/useDragReorder";
 
 interface QueueRowProps {
@@ -11,6 +12,7 @@ interface QueueRowProps {
 }
 
 export function QueueRow({ title, artist, durationSec, onRemove, dragHandlers }: QueueRowProps) {
+  const { t } = useLocale();
   return (
     <div
       {...dragHandlers}
@@ -26,7 +28,7 @@ export function QueueRow({ title, artist, durationSec, onRemove, dragHandlers }:
         type="button"
         onClick={onRemove}
         className="text-text-faint hover:text-text cursor-pointer flex-shrink-0"
-        aria-label="Remove from queue"
+        aria-label={t("queue.remove")}
       >
         <X size={13} />
       </button>

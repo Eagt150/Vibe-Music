@@ -2,6 +2,7 @@ import { useRef } from "react";
 import { getCover } from "@/lib/db/covers";
 import { buildQuadrants } from "@/lib/coverArt";
 import { useLazyObjectUrl } from "@/hooks/useLazyObjectUrl";
+import { useLocale } from "@/i18n/LocaleContext";
 import { cn } from "@/lib/cn";
 
 type Size = "sm" | "md" | "lg" | "xl";
@@ -30,6 +31,7 @@ interface CoverArtProps {
  * solid color from the playlist's own `hue` — cheap, and appropriate at 22px
  * where a collage wouldn't be legible anyway. */
 export function CoverArt({ coverHash, songTitles, hue, size, showEmptyLabel = true, className }: CoverArtProps) {
+  const { t } = useLocale();
   const elRef = useRef<HTMLDivElement>(null);
   const imageUrl = useLazyObjectUrl(
     () => (coverHash ? getCover(coverHash) : Promise.resolve(undefined)),
@@ -71,7 +73,7 @@ export function CoverArt({ coverHash, songTitles, hue, size, showEmptyLabel = tr
       >
         {showEmptyLabel && (
           <span className="font-mono text-[10px] tracking-wider text-white/85 bg-black/35 px-1.5 py-0.5 rounded">
-            ADD SONGS
+            {t("playlist.coverPlaceholderLabel")}
           </span>
         )}
       </div>

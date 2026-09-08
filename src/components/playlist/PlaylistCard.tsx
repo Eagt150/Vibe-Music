@@ -1,4 +1,5 @@
 import { CoverArt } from "@/components/ui/CoverArt";
+import { useLocale } from "@/i18n/LocaleContext";
 import type { PlaylistMeta } from "@/types";
 
 interface PlaylistCardProps {
@@ -9,11 +10,12 @@ interface PlaylistCardProps {
 }
 
 export function PlaylistCard({ playlist, songCount, songTitles, onClick }: PlaylistCardProps) {
+  const { t } = useLocale();
   return (
     <button type="button" onClick={onClick} className="flex flex-col gap-2 text-left cursor-pointer w-full">
       <CoverArt coverHash={playlist.coverHash} songTitles={songTitles} hue={playlist.hue} size="md" />
       <div className="text-base font-bold truncate">{playlist.name}</div>
-      <div className="text-sm text-text-dim">{songCount} songs</div>
+      <div className="text-sm text-text-dim">{t("playlist.songsCount", { count: songCount })}</div>
     </button>
   );
 }

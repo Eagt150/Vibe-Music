@@ -11,10 +11,16 @@ import {
 import {
   deleteSong as dbDeleteSong,
   getSongsForPlaylist,
+  moveSongToPlaylist as dbMoveSongToPlaylist,
   reorderSongs as dbReorderSongs,
   updateSongFavorite,
 } from "@/lib/db/songs";
-import { importFilesToPlaylist, type ImportResult } from "@/lib/importFiles";
+import {
+  importFilesToPlaylist,
+  type DuplicateResolver,
+  type ImportProgressCallback,
+  type ImportResult,
+} from "@/lib/importFiles";
 import { useAudioPlayer } from "./AudioPlayerContext";
 import type { PlaylistMeta, SongMeta } from "@/types";
 
@@ -28,9 +34,16 @@ interface LibraryContextValue {
   setPlaylistCover: (id: string, file: File) => Promise<void>;
   toggleFavorite: (songId: string, playlistId: string) => Promise<void>;
   deleteSong: (songId: string, playlistId: string) => Promise<void>;
+  moveSongToPlaylist: (songId: string, fromPlaylistId: string, toPlaylistId: string) => Promise<void>;
   reorderSongsInPlaylist: (playlistId: string, orderedSongIds: string[]) => Promise<void>;
   reorderPlaylists: (orderedIds: string[]) => Promise<void>;
-  importFiles: (files: FileList | File[], targetPlaylistId?: string) => Promise<ImportResult & { playlistId: string }>;
+  importFiles: (
+    files: FileList | File[],
+    targetPlaylistId?: string,
+    onProgress?: ImportProgressCallback,
+    onDuplicate?: DuplicateResolver,
+    unknownArtistLabel?: string
+  ) => Promise<ImportResult & { playlistId: string }>;
 }
 
 const LibraryContext = createContext<LibraryContextValue | null>(null);
@@ -100,6 +113,14 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     await refreshPlaylists(); // song counts shown on playlist cards change
   }
 
+  async function moveSongToPlaylist(songId: string, fromPlaylistId: string, toPlaylistId: string) {
+    await dbMoveSongToPlaylist(songId, toPlaylistId);
+    audioPlayer.repointPlaylistReferences(songId, fromPlaylistId, toPlaylistId);
+    await refreshSongs(fromPlaylistId);
+    await refreshSongs(toPlaylistId);
+    await refreshPlaylists();
+  }
+
   async function reorderSongsInPlaylist(playlistId: string, orderedSongIds: string[]) {
     await dbReorderSongs(playlistId, orderedSongIds);
     await refreshSongs(playlistId);
@@ -110,12 +131,18 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     await refreshPlaylists();
   }
 
-  async function importFiles(fileList: FileList | File[], targetPlaylistId?: string) {
+  async function importFiles(
+    fileList: FileList | File[],
+    targetPlaylistId?: string,
+    onProgress?: ImportProgressCallback,
+    onDuplicate?: DuplicateResolver,
+    unknownArtistLabel?: string
+  ) {
     const files = Array.from(fileList);
     const playlist = targetPlaylistId ? playlists.find((p) => p.id === targetPlaylistId) : undefined;
     const targetId = playlist ? playlist.id : (await findOrCreateMyMusicPlaylist()).id;
 
-    const result = await importFilesToPlaylist(targetId, files);
+    const result = await importFilesToPlaylist(targetId, files, onProgress, onDuplicate, unknownArtistLabel);
 
     await refreshPlaylists();
     await refreshSongs(targetId);
@@ -133,6 +160,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     setPlaylistCover,
     toggleFavorite,
     deleteSong,
+    moveSongToPlaylist,
     reorderSongsInPlaylist,
     reorderPlaylists,
     importFiles,

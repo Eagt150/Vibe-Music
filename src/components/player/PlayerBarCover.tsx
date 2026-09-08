@@ -3,8 +3,10 @@ import { CoverArt } from "@/components/ui/CoverArt";
 import { useAudioPlayer } from "@/context/AudioPlayerContext";
 import { useLibrary } from "@/context/LibraryContext";
 import { useUiState } from "@/context/UiStateContext";
+import { useLocale } from "@/i18n/LocaleContext";
 
 export function PlayerBarCover() {
+  const { t } = useLocale();
   const { playingPlaylistId, playingSongId } = useAudioPlayer();
   const { playlists, songsByPlaylist, toggleFavorite } = useLibrary();
   const { openFullScreen } = useUiState();
@@ -37,7 +39,7 @@ export function PlayerBarCover() {
           void toggleFavorite(song.id, playlist.id);
         }}
         className={song.favorite ? "text-accent flex-shrink-0" : "text-text-faint flex-shrink-0"}
-        aria-label={song.favorite ? "Unfavorite" : "Favorite"}
+        aria-label={song.favorite ? t("song.unfavorite") : t("song.favorite")}
       >
         <Heart size={15} fill={song.favorite ? "currentColor" : "none"} />
       </button>
