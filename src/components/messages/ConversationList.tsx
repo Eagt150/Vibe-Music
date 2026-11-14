@@ -3,6 +3,7 @@ import { AtSign, BellOff, Plus, Users } from "lucide-react";
 import { useLocale, type TranslationKey } from "@/i18n/LocaleContext";
 import { UserAvatar } from "@/components/ui/UserAvatar";
 import { UserName } from "@/components/user/UserName";
+import { Nameplate } from "@/components/user/Nameplate";
 import { Button } from "@/components/ui/Button";
 import { formatChatTime } from "@/lib/chatTime";
 import { cn } from "@/lib/cn";
@@ -95,7 +96,6 @@ function ConversationRow({ c, selected, onSelect }: { c: ConversationSummary; se
       : "";
   const unread = c.muted ? c.unreadMentions : c.unreadCount;
   const user = c.user;
-  const nameplate = user ? (user.nameplateStillUrl && !hover ? user.nameplateStillUrl : user.nameplateUrl) : null;
 
   return (
     <button
@@ -106,15 +106,11 @@ function ConversationRow({ c, selected, onSelect }: { c: ConversationSummary; se
       className={cn(
         "relative w-full flex items-center gap-3 px-2.5 py-2 rounded-md cursor-pointer text-left overflow-hidden",
         selected ? "bg-surface-alt" : "hover:bg-surface-alt/50",
-        c.muted && unread === 0 && "opacity-60"
+        c.muted && unread === 0 && "opacity-60",
+        user?.nameplateUrl && "[text-shadow:0_1px_3px_rgba(0,0,0,0.8)]"
       )}
     >
-      {nameplate && (
-        <>
-          <img src={nameplate} alt="" aria-hidden className="absolute inset-0 w-full h-full object-cover opacity-90" />
-          <span aria-hidden className="absolute inset-0 bg-gradient-to-r from-bg/90 via-bg/60 to-transparent" />
-        </>
-      )}
+      {user && <Nameplate url={user.nameplateUrl} stillUrl={user.nameplateStillUrl} animate={hover} />}
       <UserAvatar
         name={c.title}
         url={c.avatarUrl}

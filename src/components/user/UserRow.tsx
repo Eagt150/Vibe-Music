@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from "react";
 import { UserAvatar } from "@/components/ui/UserAvatar";
 import { cn } from "@/lib/cn";
+import { Nameplate } from "./Nameplate";
 import { UserName } from "./UserName";
 import type { PublicUser } from "./types";
 
@@ -20,7 +21,6 @@ interface UserRowProps {
  * their nameplate image behind the row. GIFs animate while hovered. */
 export function UserRow({ user, subtitle, active, avatarSize = 36, onClick, onAvatarClick, children, className }: UserRowProps) {
   const [hover, setHover] = useState(false);
-  const nameplate = user.nameplateStillUrl && !hover ? user.nameplateStillUrl : user.nameplateUrl;
   const Body = onClick ? "button" : "div";
   return (
     <div
@@ -29,16 +29,11 @@ export function UserRow({ user, subtitle, active, avatarSize = 36, onClick, onAv
       className={cn(
         "relative flex items-center gap-3 px-2.5 py-1.5 rounded-md overflow-hidden",
         active ? "bg-surface-alt" : "hover:bg-surface-alt/60",
+        user.nameplateUrl && "[text-shadow:0_1px_3px_rgba(0,0,0,0.8)]",
         className
       )}
     >
-      {nameplate && (
-        <>
-          <img src={nameplate} alt="" aria-hidden className="absolute inset-0 w-full h-full object-cover opacity-90" />
-          {/* Fades the image towards the left so the name stays readable. */}
-          <span aria-hidden className="absolute inset-0 bg-gradient-to-r from-bg/90 via-bg/55 to-transparent" />
-        </>
-      )}
+      <Nameplate url={user.nameplateUrl} stillUrl={user.nameplateStillUrl} animate={hover} />
       <button
         type="button"
         onClick={onAvatarClick ?? onClick}
