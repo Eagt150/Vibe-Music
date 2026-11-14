@@ -9,7 +9,9 @@ import { UserAvatar } from "@/components/ui/UserAvatar";
 import { IconButton } from "@/components/ui/IconButton";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { UserName } from "@/components/user/UserName";
+import { Nameplate } from "@/components/user/Nameplate";
 import { convexErrorCode } from "@/lib/convexError";
+import { cn } from "@/lib/cn";
 import { MAX_STICKERS } from "@/lib/stickerLimits";
 import { GroupSettingsDialog } from "./GroupSettingsDialog";
 import { MessageItem, type ChatMessage } from "./chat/MessageItem";
@@ -45,6 +47,7 @@ export function ChatView({ conversationId, myId, onBack, onLeft }: ChatViewProps
   const [deleting, setDeleting] = useState<ChatMessage | null>(null);
   const [lightbox, setLightbox] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [headerHover, setHeaderHover] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // The server already hides messages older than 3 days, but a chat left open
@@ -93,6 +96,7 @@ export function ChatView({ conversationId, myId, onBack, onLeft }: ChatViewProps
   if (conversation === null) return null;
 
   const other = conversation?.members.find((m) => m._id !== myId);
+  const headerPlate = conversation?.kind === "direct" && !!other?.nameplateUrl;
   const canModerate = conversation?.kind === "group" && conversation.myRole === "admin";
   const subtitle =
     conversation?.kind === "group"
@@ -129,7 +133,15 @@ export function ChatView({ conversationId, myId, onBack, onLeft }: ChatViewProps
 
   return (
     <div className="flex flex-col h-full min-h-0">
-      <div className="flex items-center gap-3 px-3.5 md:px-5 py-3 border-b border-border flex-shrink-0">
+      <div
+        onMouseEnter={() => setHeaderHover(true)}
+        onMouseLeave={() => setHeaderHover(false)}
+        className={cn(
+          "relative flex items-center gap-3 px-3.5 md:px-5 py-3 border-b border-border flex-shrink-0 [&>*:not([aria-hidden])]:relative",
+          headerPlate && "[text-shadow:0_1px_3px_rgba(0,0,0,0.8)]"
+        )}
+      >
+        {headerPlate && <Nameplate url={other?.nameplateUrl} stillUrl={other?.nameplateStillUrl} animate={headerHover} />}
         {onBack && (
           <IconButton onClick={onBack} aria-label={t("common.back")}>
             <ArrowLeft size={16} />
