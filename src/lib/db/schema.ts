@@ -55,6 +55,10 @@ export interface SettingsRecord {
   songsPlayedCounter: number;
   recentlyPlayed: RecentlyPlayedEntry[];
   playbackState: PlaybackSnapshot | null;
+  /** Play a short sound when a message arrives. */
+  messageSound: boolean;
+  /** Show an OS notification for messages that arrive while the tab is hidden. */
+  systemNotifications: boolean;
 }
 
 export interface VibeMusicDB extends DBSchema {

@@ -20,6 +20,8 @@ function defaultSettings(): SettingsRecord {
     songsPlayedCounter: 0,
     recentlyPlayed: [],
     playbackState: null,
+    messageSound: true,
+    systemNotifications: false,
   };
 }
 

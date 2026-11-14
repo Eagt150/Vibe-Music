@@ -2,7 +2,22 @@ import { createContext, useContext, useState, type ReactNode } from "react";
 
 export type Route = { type: "home" } | { type: "playlist"; playlistId: string };
 
+/** Top-level area of the app, picked from the nav rail. The player keeps
+ * playing whichever one is shown. */
+export type Section = "music" | "messages" | "admin";
+
 interface UiStateContextValue {
+  section: Section;
+  setSection: (section: Section) => void;
+
+  /** The chat open on screen right now (null if none), so notifications
+   * skip messages the user is already looking at. */
+  activeConversationId: string | null;
+  setActiveConversationId: (id: string | null) => void;
+  /** Asked from outside Messages (a notification click): Messages opens it. */
+  pendingConversationId: string | null;
+  openConversation: (id: string | null) => void;
+
   route: Route;
   navigateHome: () => void;
   navigateToPlaylist: (playlistId: string) => void;
@@ -36,6 +51,9 @@ interface UiStateContextValue {
 const UiStateContext = createContext<UiStateContextValue | null>(null);
 
 export function UiStateProvider({ children }: { children: ReactNode }) {
+  const [section, setSectionState] = useState<Section>("music");
+  const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
+  const [pendingConversationId, setPendingConversationId] = useState<string | null>(null);
   const [route, setRoute] = useState<Route>({ type: "home" });
   const [searchQuery, setSearchQuery] = useState("");
   const [importError, setImportError] = useState<string | null>(null);
@@ -46,6 +64,21 @@ export function UiStateProvider({ children }: { children: ReactNode }) {
   const [isMobileSearchExpanded, setMobileSearchExpanded] = useState(false);
 
   const value: UiStateContextValue = {
+    section,
+    setSection: (next) => {
+      setSectionState(next);
+      setMobileSidebarOpen(false);
+      setMobileSearchExpanded(false);
+    },
+
+    activeConversationId,
+    setActiveConversationId,
+    pendingConversationId,
+    openConversation: (id) => {
+      setPendingConversationId(id);
+      if (id !== null) setSectionState("messages");
+    },
+
     route,
     navigateHome: () => {
       setRoute({ type: "home" });

@@ -2,6 +2,12 @@ import { useEffect } from "react";
 import { useLibrary } from "@/context/LibraryContext";
 import { useUiState } from "@/context/UiStateContext";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
+import { useConfirmBeforeUnload } from "@/hooks/useConfirmBeforeUnload";
+import { useMessageNotifications } from "@/hooks/useMessageNotifications";
+import { useIsMobile } from "@/hooks/useMediaQuery";
+import { NavRail } from "@/components/nav/NavRail";
+import { MessagesView } from "@/components/messages/MessagesView";
+import { AdminView } from "@/components/admin/AdminView";
 import { Sidebar } from "@/components/sidebar/Sidebar";
 import { HomeView } from "@/components/home/HomeView";
 import { PlaylistView } from "@/components/playlist/PlaylistView";
@@ -15,8 +21,11 @@ import { TopBar } from "./TopBar";
 
 export function AppShell() {
   const { playlists, isLoading } = useLibrary();
-  const { route, navigateHome, importError, setImportError } = useUiState();
+  const { section, route, navigateHome, importError, setImportError } = useUiState();
+  const isMobile = useIsMobile();
   useKeyboardShortcuts();
+  useConfirmBeforeUnload();
+  useMessageNotifications();
 
   // If the currently viewed playlist gets deleted, bounce back to Home
   // instead of rendering a stale/blank playlist view.
@@ -29,19 +38,26 @@ export function AppShell() {
 
   return (
     <div className="flex flex-col w-full h-screen bg-bg text-text overflow-hidden relative">
-      <div className="flex flex-1 min-h-0 overflow-hidden relative">
-        <Sidebar />
-        <div className="flex-1 flex flex-col min-w-0 min-h-0 overflow-hidden">
-          <TopBar />
-          <div className="flex-1 overflow-y-auto">
-            {importError && (
-              <div className="px-4 md:px-8 pt-4">
-                <ErrorBanner message={importError} onDismiss={() => setImportError(null)} />
+      <div className={isMobile ? "flex flex-col flex-1 min-h-0 overflow-hidden relative" : "flex flex-1 min-h-0 overflow-hidden relative"}>
+        <NavRail />
+        {section === "music" && (
+          <>
+            <Sidebar />
+            <div className="flex-1 flex flex-col min-w-0 min-h-0 overflow-hidden">
+              <TopBar />
+              <div className="flex-1 overflow-y-auto">
+                {importError && (
+                  <div className="px-4 md:px-8 pt-4">
+                    <ErrorBanner message={importError} onDismiss={() => setImportError(null)} />
+                  </div>
+                )}
+                {route.type === "home" ? <HomeView /> : <PlaylistView playlistId={route.playlistId} />}
               </div>
-            )}
-            {route.type === "home" ? <HomeView /> : <PlaylistView playlistId={route.playlistId} />}
-          </div>
-        </div>
+            </div>
+          </>
+        )}
+        {section === "messages" && <MessagesView />}
+        {section === "admin" && <AdminView />}
       </div>
       <PlayerBar />
       <FullScreenPlayer />
