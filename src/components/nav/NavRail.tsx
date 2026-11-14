@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { useQuery } from "convex/react";
 import { MessageCircle, Music, ShieldCheck } from "lucide-react";
 import { api } from "../../../convex/_generated/api";
@@ -60,15 +60,15 @@ function NavItem({ label, active, onClick, badge = 0, children, mobile }: NavIte
  * a vertical rail on desktop, a tab strip on mobile. */
 export function NavRail() {
   const { t } = useLocale();
-  const { section, setSection } = useUiState();
+  const { section, setSection, isProfileEditorOpen, setProfileEditorOpen } = useUiState();
   const isMobile = useIsMobile();
-  const [profileOpen, setProfileOpen] = useState(false);
   const me = useQuery(api.users.me);
   const conversations = useQuery(api.conversations.list);
   const isAdmin = me?.role === "admin";
   const requests = useQuery(api.users.listAccessRequests, isAdmin ? {} : "skip");
 
-  const unread = conversations?.reduce((sum, c) => sum + c.unreadCount, 0) ?? 0;
+  // Muted chats only count when they mention me.
+  const unread = conversations?.reduce((sum, c) => sum + (c.muted ? c.unreadMentions : c.unreadCount), 0) ?? 0;
   const go = (s: Section) => () => setSection(s);
 
   const items = (
@@ -96,12 +96,12 @@ export function NavRail() {
   const avatarButton = me && (
     <button
       type="button"
-      onClick={() => setProfileOpen(true)}
+      onClick={() => setProfileEditorOpen(true)}
       title={t("nav.profile")}
       aria-label={t("nav.profile")}
       className={cn("cursor-pointer rounded-full", isMobile ? "px-3" : "")}
     >
-      <UserAvatar name={me.displayName} url={me.avatarUrl} size={isMobile ? 28 : 36} />
+      <UserAvatar name={me.displayName} url={me.avatarUrl} stillUrl={me.avatarStillUrl} size={isMobile ? 28 : 36} />
     </button>
   );
 
@@ -120,7 +120,7 @@ export function NavRail() {
           {avatarButton}
         </nav>
       )}
-      {profileOpen && <ProfileDialog onClose={() => setProfileOpen(false)} />}
+      {isProfileEditorOpen && <ProfileDialog onClose={() => setProfileEditorOpen(false)} />}
     </>
   );
 }

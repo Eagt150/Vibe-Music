@@ -3,7 +3,8 @@ import { useMutation, useQuery } from "convex/react";
 import { ArrowLeft, Check, MessageCircle, UserMinus, UserPlus, X } from "lucide-react";
 import { api } from "../../../convex/_generated/api";
 import { useLocale } from "@/i18n/LocaleContext";
-import { UserAvatar } from "@/components/ui/UserAvatar";
+import { UserRow } from "@/components/user/UserRow";
+import { useUiState } from "@/context/UiStateContext";
 import { Button } from "@/components/ui/Button";
 import { IconButton } from "@/components/ui/IconButton";
 import { SearchBar } from "@/components/ui/SearchBar";
@@ -11,15 +12,11 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import type { ConversationId, FriendRow } from "./types";
 
 function UserLine({ user, children }: { user: FriendRow["user"]; children?: ReactNode }) {
+  const { openProfile } = useUiState();
   return (
-    <div className="flex items-center gap-3 px-2.5 py-2 rounded-md hover:bg-surface-alt/50">
-      <UserAvatar name={user.displayName} url={user.avatarUrl} size={38} />
-      <div className="flex-1 min-w-0">
-        <div className="font-bold text-base truncate">{user.displayName}</div>
-        <div className="text-sm text-text-dim truncate">@{user.username}</div>
-      </div>
-      <div className="flex items-center gap-1.5 flex-shrink-0">{children}</div>
-    </div>
+    <UserRow user={user} subtitle={`@${user.username}`} avatarSize={38} onClick={() => openProfile(user._id)}>
+      {children}
+    </UserRow>
   );
 }
 

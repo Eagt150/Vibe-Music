@@ -1,6 +1,8 @@
-import { Plus, Users } from "lucide-react";
-import { useLocale } from "@/i18n/LocaleContext";
+import { useState } from "react";
+import { AtSign, BellOff, Plus, Users } from "lucide-react";
+import { useLocale, type TranslationKey } from "@/i18n/LocaleContext";
 import { UserAvatar } from "@/components/ui/UserAvatar";
+import { UserName } from "@/components/user/UserName";
 import { Button } from "@/components/ui/Button";
 import { formatChatTime } from "@/lib/chatTime";
 import { cn } from "@/lib/cn";
@@ -25,7 +27,7 @@ export function ConversationList({
   onOpenFriends,
   onNewGroup,
 }: ConversationListProps) {
-  const { t, locale } = useLocale();
+  const { t } = useLocale();
 
   return (
     <div className="flex flex-col h-full min-h-0">
@@ -64,53 +66,86 @@ export function ConversationList({
             <div className="text-sm text-text-dim mt-1">{t("messages.noConversationsSubtitle")}</div>
           </div>
         )}
-        {conversations?.map((c) => {
-          const previewBody =
-            c.lastMessage?.kind === "gif"
-              ? t("messages.gifPreview")
-              : c.lastMessage?.kind === "sticker"
-                ? t("messages.stickerPreview")
-                : (c.lastMessage?.body ?? "");
-          const preview = c.lastMessage
-            ? `${c.lastMessage.mine ? t("messages.you") : c.kind === "group" ? c.lastMessage.authorName : ""}${
-                c.lastMessage.mine || c.kind === "group" ? ": " : ""
-              }${previewBody}`
-            : c.kind === "group"
-              ? t("messages.members", { count: c.memberCount })
-              : "";
-          return (
-            <button
-              key={c._id}
-              type="button"
-              onClick={() => onSelect(c._id)}
-              className={cn(
-                "w-full flex items-center gap-3 px-2.5 py-2 rounded-md cursor-pointer text-left",
-                selectedId === c._id ? "bg-surface-alt" : "hover:bg-surface-alt/50"
-              )}
-            >
-              <UserAvatar name={c.title} url={c.avatarUrl} group={c.kind === "group"} size={40} />
-              <div className="flex-1 min-w-0">
-                <div className="flex items-baseline gap-2">
-                  <span className={cn("flex-1 truncate text-base", c.unreadCount > 0 ? "font-extrabold" : "font-semibold")}>
-                    {c.title}
-                  </span>
-                  <span className="text-xs text-text-faint flex-shrink-0">{formatChatTime(c.lastActivityAt, locale)}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className={cn("flex-1 truncate text-sm", c.unreadCount > 0 ? "text-text" : "text-text-dim")}>
-                    {preview}
-                  </span>
-                  {c.unreadCount > 0 && (
-                    <span className="min-w-[18px] h-[18px] px-1 rounded-pill bg-accent text-accent-text text-xs font-bold inline-flex items-center justify-center">
-                      {c.unreadCount}
-                    </span>
-                  )}
-                </div>
-              </div>
-            </button>
-          );
-        })}
+        {conversations?.map((c) => (
+          <ConversationRow key={c._id} c={c} selected={selectedId === c._id} onSelect={() => onSelect(c._id)} />
+        ))}
       </div>
     </div>
+  );
+}
+
+const KIND_PREVIEW: Partial<Record<string, TranslationKey>> = {
+  gif: "messages.gifPreview",
+  sticker: "messages.stickerPreview",
+  voice: "messages.voicePreview",
+  image: "messages.imagePreview",
+};
+
+function ConversationRow({ c, selected, onSelect }: { c: ConversationSummary; selected: boolean; onSelect: () => void }) {
+  const { t, locale } = useLocale();
+  const [hover, setHover] = useState(false);
+  const kindKey = c.lastMessage ? KIND_PREVIEW[c.lastMessage.kind] : undefined;
+  const previewBody = kindKey ? t(kindKey) : (c.lastMessage?.body ?? "");
+  const preview = c.lastMessage
+    ? `${c.lastMessage.mine ? t("messages.you") : c.kind === "group" ? c.lastMessage.authorName : ""}${
+        c.lastMessage.mine || c.kind === "group" ? ": " : ""
+      }${previewBody}`
+    : c.kind === "group"
+      ? t("messages.members", { count: c.memberCount })
+      : "";
+  const unread = c.muted ? c.unreadMentions : c.unreadCount;
+  const user = c.user;
+  const nameplate = user ? (user.nameplateStillUrl && !hover ? user.nameplateStillUrl : user.nameplateUrl) : null;
+
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      className={cn(
+        "relative w-full flex items-center gap-3 px-2.5 py-2 rounded-md cursor-pointer text-left overflow-hidden",
+        selected ? "bg-surface-alt" : "hover:bg-surface-alt/50",
+        c.muted && unread === 0 && "opacity-60"
+      )}
+    >
+      {nameplate && (
+        <>
+          <img src={nameplate} alt="" aria-hidden className="absolute inset-0 w-full h-full object-cover opacity-90" />
+          <span aria-hidden className="absolute inset-0 bg-gradient-to-r from-bg/90 via-bg/60 to-transparent" />
+        </>
+      )}
+      <UserAvatar
+        name={c.title}
+        url={c.avatarUrl}
+        stillUrl={user?.avatarStillUrl}
+        animate={hover}
+        group={c.kind === "group"}
+        size={40}
+        className="relative"
+      />
+      <div className="relative flex-1 min-w-0">
+        <div className="flex items-baseline gap-2">
+          <span className={cn("flex-1 min-w-0 text-base", unread > 0 ? "font-extrabold" : "font-semibold")}>
+            {user ? <UserName user={user} /> : <span className="truncate block">{c.title}</span>}
+          </span>
+          {c.muted && <BellOff size={11} className="text-text-faint flex-shrink-0 self-center" aria-label={t("messages.muted")} />}
+          <span className="text-xs text-text-faint flex-shrink-0">{formatChatTime(c.lastActivityAt, locale)}</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className={cn("flex-1 truncate text-sm", unread > 0 ? "text-text" : "text-text-dim")}>{preview}</span>
+          {c.unreadMentions > 0 && (
+            <span className="w-[18px] h-[18px] rounded-pill bg-danger text-white inline-flex items-center justify-center" title={t("messages.mentioned")}>
+              <AtSign size={11} />
+            </span>
+          )}
+          {unread > 0 && (
+            <span className="min-w-[18px] h-[18px] px-1 rounded-pill bg-accent text-accent-text text-xs font-bold inline-flex items-center justify-center">
+              {unread}
+            </span>
+          )}
+        </div>
+      </div>
+    </button>
   );
 }

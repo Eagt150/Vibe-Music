@@ -20,13 +20,21 @@ type Tab = "stickers" | "gifs";
 interface MediaPickerProps {
   conversationId: ConversationId;
   myId: string;
+  /** Message being replied to, if any. */
+  replyToId?: Id<"messages">;
   onClose: () => void;
+  /** Called after something was sent (clears the reply). */
+  onSent?: () => void;
   onError: (message: string) => void;
 }
 
 /** The panel above the composer: my stickers, and (if KLIPY is configured)
  * GIF search. */
-export function MediaPicker({ conversationId, myId, onClose, onError }: MediaPickerProps) {
+export function MediaPicker({ conversationId, myId, replyToId, onClose, onSent, onError }: MediaPickerProps) {
+  const sent = () => {
+    onClose();
+    onSent?.();
+  };
   const { t } = useLocale();
   const [tab, setTab] = useState<Tab>("stickers");
   const [editorOpen, setEditorOpen] = useState(false);
@@ -63,9 +71,15 @@ export function MediaPicker({ conversationId, myId, onClose, onError }: MediaPic
       </div>
 
       {tab === "stickers" ? (
-        <StickersTab conversationId={conversationId} onSent={onClose} onError={onError} onCreate={() => setEditorOpen(true)} />
+        <StickersTab
+          conversationId={conversationId}
+          replyToId={replyToId}
+          onSent={sent}
+          onError={onError}
+          onCreate={() => setEditorOpen(true)}
+        />
       ) : (
-        <GifsTab conversationId={conversationId} myId={myId} onSent={onClose} onError={onError} />
+        <GifsTab conversationId={conversationId} myId={myId} replyToId={replyToId} onSent={sent} onError={onError} />
       )}
 
       {editorOpen && <StickerEditor onClose={() => setEditorOpen(false)} />}
@@ -75,11 +89,13 @@ export function MediaPicker({ conversationId, myId, onClose, onError }: MediaPic
 
 function StickersTab({
   conversationId,
+  replyToId,
   onSent,
   onError,
   onCreate,
 }: {
   conversationId: ConversationId;
+  replyToId?: Id<"messages">;
   onSent: () => void;
   onError: (message: string) => void;
   onCreate: () => void;
@@ -94,7 +110,7 @@ function StickersTab({
   async function send(stickerId: Id<"stickers">) {
     onSent();
     try {
-      await sendSticker({ conversationId, stickerId });
+      await sendSticker({ conversationId, stickerId, replyToId });
     } catch (err) {
       onError(convexErrorCode(err) === "RATE_LIMITED" ? t("messages.errorRateLimited") : t("messages.errorSend"));
     }
@@ -159,11 +175,13 @@ function StickersTab({
 function GifsTab({
   conversationId,
   myId,
+  replyToId,
   onSent,
   onError,
 }: {
   conversationId: ConversationId;
   myId: string;
+  replyToId?: Id<"messages">;
   onSent: () => void;
   onError: (message: string) => void;
 }) {
@@ -208,6 +226,7 @@ function GifsTab({
       await sendGif({
         conversationId,
         gif: { slug: gif.slug, url: gif.full.url, width: gif.full.width, height: gif.full.height },
+        replyToId,
       });
     } catch (err) {
       onError(convexErrorCode(err) === "RATE_LIMITED" ? t("messages.errorRateLimited") : t("messages.errorSend"));
