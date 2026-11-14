@@ -225,6 +225,11 @@ export const en = {
     saved: "Saved",
     uploading: "Uploading…",
     errorImage: "Pick a PNG, JPG, WebP or GIF image.",
+    notificationsTitle: "Notifications",
+    messageSound: "Sound for new messages",
+    systemNotifications: "Desktop notifications",
+    notificationsBlocked: "Notifications are blocked for this site — allow them in your browser's site settings.",
+    notificationsUnsupported: "This browser doesn't support desktop notifications.",
   },
   stickers: {
     tab: "Stickers",
@@ -508,6 +513,11 @@ export const es: typeof en = {
     saved: "Guardado",
     uploading: "Subiendo…",
     errorImage: "Elige una imagen PNG, JPG, WebP o GIF.",
+    notificationsTitle: "Notificaciones",
+    messageSound: "Sonido de mensajes nuevos",
+    systemNotifications: "Notificaciones de escritorio",
+    notificationsBlocked: "Las notificaciones están bloqueadas para este sitio — actívalas en los ajustes del sitio de tu navegador.",
+    notificationsUnsupported: "Este navegador no admite notificaciones de escritorio.",
   },
   stickers: {
     tab: "Stickers",

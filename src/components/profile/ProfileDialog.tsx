@@ -11,6 +11,8 @@ import { UserAvatar } from "@/components/ui/UserAvatar";
 import { HiddenFileInput } from "@/components/ui/HiddenFileInput";
 import { SignOutConfirm } from "@/components/auth/SignOutConfirm";
 import { resizeToSquareJpeg } from "@/lib/resizeImage";
+import { setNotificationPrefs, systemNotificationsSupported, useNotificationPrefs } from "@/lib/notificationPrefs";
+import { playMessageSound } from "@/lib/messageSound";
 
 const ACCEPTED_IMAGES = "image/png,image/jpeg,image/webp,image/gif";
 
@@ -27,6 +29,8 @@ export function ProfileDialog({ onClose }: { onClose: () => void }) {
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmingSignOut, setConfirmingSignOut] = useState(false);
+  const prefs = useNotificationPrefs();
+  const [notifyNote, setNotifyNote] = useState<string | null>(null);
 
   useEffect(() => {
     if (me) setName(me.displayName === me.username ? "" : me.displayName);
@@ -53,6 +57,15 @@ export function ProfileDialog({ onClose }: { onClose: () => void }) {
     } finally {
       setUploading(false);
     }
+  }
+
+  async function toggleSystemNotifications(enabled: boolean) {
+    setNotifyNote(null);
+    if (!enabled) return setNotificationPrefs({ systemNotifications: false });
+    const permission =
+      Notification.permission === "default" ? await Notification.requestPermission() : Notification.permission;
+    if (permission === "granted") setNotificationPrefs({ systemNotifications: true });
+    else setNotifyNote(t("profile.notificationsBlocked"));
   }
 
   async function handleSave() {
@@ -99,6 +112,35 @@ export function ProfileDialog({ onClose }: { onClose: () => void }) {
         <Button variant="secondary" onClick={() => void handleSave()}>
           {saved ? t("profile.saved") : t("profile.save")}
         </Button>
+      </div>
+
+      <div className="flex flex-col gap-2.5 border-t border-border pt-4 mb-4">
+        <div className="text-sm font-bold text-text-dim">{t("profile.notificationsTitle")}</div>
+        <label className="flex items-center justify-between gap-3 text-base cursor-pointer">
+          <span>{t("profile.messageSound")}</span>
+          <input
+            type="checkbox"
+            checked={prefs.messageSound}
+            onChange={(e) => {
+              setNotificationPrefs({ messageSound: e.target.checked });
+              if (e.target.checked) playMessageSound();
+            }}
+            className="w-4 h-4 accent-[var(--accent)]"
+          />
+        </label>
+        <label className="flex items-center justify-between gap-3 text-base cursor-pointer">
+          <span>{t("profile.systemNotifications")}</span>
+          <input
+            type="checkbox"
+            disabled={!systemNotificationsSupported}
+            checked={prefs.systemNotifications && systemNotificationsSupported && Notification.permission === "granted"}
+            onChange={(e) => void toggleSystemNotifications(e.target.checked)}
+            className="w-4 h-4 accent-[var(--accent)]"
+          />
+        </label>
+        {(notifyNote || !systemNotificationsSupported) && (
+          <div className="text-xs text-text-faint">{notifyNote ?? t("profile.notificationsUnsupported")}</div>
+        )}
       </div>
 
       <div className="flex justify-between gap-2 border-t border-border pt-4">

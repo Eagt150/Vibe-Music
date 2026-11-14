@@ -1,8 +1,9 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useQuery } from "convex/react";
 import { MessageCircle } from "lucide-react";
 import { api } from "../../../convex/_generated/api";
 import { useIsMobile } from "@/hooks/useMediaQuery";
+import { useUiState } from "@/context/UiStateContext";
 import { useLocale } from "@/i18n/LocaleContext";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ConversationList } from "./ConversationList";
@@ -22,8 +23,24 @@ export function MessagesView() {
   const [pane, setPane] = useState<MessagesPane>({ type: "empty" });
   const [creatingGroup, setCreatingGroup] = useState(false);
 
+  const { pendingConversationId, openConversation, setActiveConversationId } = useUiState();
+
   const openChat = useCallback((conversationId: ConversationId) => setPane({ type: "chat", conversationId }), []);
   const closePane = useCallback(() => setPane({ type: "empty" }), []);
+
+  // A notification click asks for a specific chat.
+  useEffect(() => {
+    if (pendingConversationId === null) return;
+    setPane({ type: "chat", conversationId: pendingConversationId as ConversationId });
+    openConversation(null);
+  }, [pendingConversationId, openConversation]);
+
+  // Tell the notifier which chat is on screen (none once Messages unmounts).
+  const activeId = pane.type === "chat" ? pane.conversationId : null;
+  useEffect(() => {
+    setActiveConversationId(activeId);
+    return () => setActiveConversationId(null);
+  }, [activeId, setActiveConversationId]);
 
   if (!me) return null;
 
