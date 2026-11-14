@@ -32,6 +32,8 @@ export function useMessageNotifications() {
 
       const lookingAtIt = !document.hidden && section === "messages" && activeConversationId === c._id;
       if (lookingAtIt) continue;
+      // A muted chat stays quiet unless the new message mentions me.
+      if (c.muted && !c.lastMessage.mentionsMe) continue;
 
       if (prefs.messageSound) playMessageSound();
 
@@ -41,12 +43,13 @@ export function useMessageNotifications() {
         Notification.permission === "granted" &&
         (document.hidden || !document.hasFocus())
       ) {
-        const text =
-          c.lastMessage.kind === "gif"
-            ? t("messages.gifPreview")
-            : c.lastMessage.kind === "sticker"
-              ? t("messages.stickerPreview")
-              : c.lastMessage.body;
+        const kindKey = {
+          gif: "messages.gifPreview",
+          sticker: "messages.stickerPreview",
+          voice: "messages.voicePreview",
+          image: "messages.imagePreview",
+        } as const;
+        const text = c.lastMessage.kind === "text" ? c.lastMessage.body : t(kindKey[c.lastMessage.kind]);
         const n = new Notification(c.title, {
           body: c.kind === "group" ? `${c.lastMessage.authorName}: ${text}` : text,
           icon: c.avatarUrl ?? "/icon-192.png",

@@ -10,6 +10,11 @@ export const MAX_DISPLAY_NAME_LENGTH = 40;
 export const MAX_STICKERS_PER_USER = 50;
 export const MAX_STICKER_BYTES = 512 * 1024;
 export const KLIPY_MEDIA_PREFIX = "https://static.klipy.com/";
+export const MAX_BIO_LENGTH = 190;
+export const MAX_VOICE_MS = 60_000;
+export const MAX_VOICE_BYTES = 2 * 1024 * 1024;
+export const MAX_CHAT_IMAGE_BYTES = 8 * 1024 * 1024;
+export const HEX_COLOR = /^#[0-9a-f]{6}$/i;
 
 // Lowercase letters, digits, "_" and "." — so "@name" is unambiguous to type
 // and to search, whatever the user typed at sign-up.
@@ -46,21 +51,62 @@ export async function requireAdmin(ctx: Ctx): Promise<Doc<"users">> {
   return user;
 }
 
+/** Everything a list row or a chat message needs to draw someone the way
+ * they customized it. The full profile card adds more (users.getProfile). */
 export type PublicUser = {
   _id: Id<"users">;
   username: string;
   displayName: string;
   avatarUrl: string | null;
+  /** First frame of an animated avatar; null when the avatar isn't a GIF. */
+  avatarStillUrl: string | null;
+  nameColor: string | null;
+  nameColor2: string | null;
+  tag: { emoji: string; text: string } | null;
+  isAdmin: boolean;
+  nameplateUrl: string | null;
+  nameplateStillUrl: string | null;
 };
+
+export async function fileUrl(ctx: Ctx, id: Id<"_storage"> | undefined): Promise<string | null> {
+  return id ? await ctx.storage.getUrl(id) : null;
+}
 
 export async function toPublicUser(ctx: Ctx, user: Doc<"users">): Promise<PublicUser> {
   const username = user.username ?? "";
+  const [avatarUrl, avatarStillUrl, nameplateUrl, nameplateStillUrl] = await Promise.all([
+    fileUrl(ctx, user.avatarId),
+    fileUrl(ctx, user.avatarStillId),
+    fileUrl(ctx, user.nameplateId),
+    fileUrl(ctx, user.nameplateStillId),
+  ]);
   return {
     _id: user._id,
     username,
     displayName: user.displayName || username,
-    avatarUrl: user.avatarId ? await ctx.storage.getUrl(user.avatarId) : null,
+    avatarUrl,
+    avatarStillUrl,
+    nameColor: user.nameColor ?? null,
+    nameColor2: user.nameColor2 ?? null,
+    tag: user.tagText ? { emoji: user.tagEmoji ?? "", text: user.tagText } : null,
+    isAdmin: user.role === "admin",
+    nameplateUrl,
+    nameplateStillUrl,
   };
+}
+
+/** Deletes a message with everything hanging off it: its voice note or photo
+ * file and its reactions. Sticker files are not touched — they belong to
+ * sticker collections (see stickers.deleteFileIfUnused). */
+export async function deleteMessageCascade(ctx: MutationCtx, message: Doc<"messages">) {
+  if (message.voice) await ctx.storage.delete(message.voice.storageId).catch(() => {});
+  if (message.image) await ctx.storage.delete(message.image.storageId).catch(() => {});
+  const reactions = await ctx.db
+    .query("reactions")
+    .withIndex("by_message", (q) => q.eq("messageId", message._id))
+    .collect();
+  for (const r of reactions) await ctx.db.delete(r._id);
+  await ctx.db.delete(message._id);
 }
 
 export function orderedPair(a: Id<"users">, b: Id<"users">): [Id<"users">, Id<"users">] {

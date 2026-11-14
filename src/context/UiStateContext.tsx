@@ -18,6 +18,12 @@ interface UiStateContextValue {
   pendingConversationId: string | null;
   openConversation: (id: string | null) => void;
 
+  /** Whose profile card is open (null = none). */
+  profileUserId: string | null;
+  openProfile: (userId: string | null) => void;
+  isProfileEditorOpen: boolean;
+  setProfileEditorOpen: (open: boolean) => void;
+
   route: Route;
   navigateHome: () => void;
   navigateToPlaylist: (playlistId: string) => void;
@@ -54,6 +60,8 @@ export function UiStateProvider({ children }: { children: ReactNode }) {
   const [section, setSectionState] = useState<Section>("music");
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   const [pendingConversationId, setPendingConversationId] = useState<string | null>(null);
+  const [profileUserId, setProfileUserId] = useState<string | null>(null);
+  const [isProfileEditorOpen, setProfileEditorOpen] = useState(false);
   const [route, setRoute] = useState<Route>({ type: "home" });
   const [searchQuery, setSearchQuery] = useState("");
   const [importError, setImportError] = useState<string | null>(null);
@@ -78,6 +86,11 @@ export function UiStateProvider({ children }: { children: ReactNode }) {
       setPendingConversationId(id);
       if (id !== null) setSectionState("messages");
     },
+
+    profileUserId,
+    openProfile: setProfileUserId,
+    isProfileEditorOpen,
+    setProfileEditorOpen,
 
     route,
     navigateHome: () => {

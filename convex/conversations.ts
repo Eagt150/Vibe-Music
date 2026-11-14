@@ -6,6 +6,7 @@ import {
   MAX_GROUP_NAME_LENGTH,
   MESSAGE_TTL_MS,
   areFriends,
+  deleteMessageCascade,
   getApprovedUser,
   getMembership,
   orderedPair,
@@ -75,17 +76,30 @@ export const list = query({
               ? (conversation.name ?? "")
               : (others[0]?.displayName ?? ""),
           avatarUrl: conversation.kind === "direct" ? (others[0]?.avatarUrl ?? null) : null,
+          /** The other person of a private chat, to draw them with their style. */
+          user: conversation.kind === "direct" ? (others[0] ?? null) : null,
           memberCount: members.length,
           lastActivityAt: lastMessage?._creationTime ?? conversation._creationTime,
           lastMessage: lastMessage
             ? {
                 body: lastMessage.body,
-                kind: lastMessage.gif ? ("gif" as const) : lastMessage.stickerStorageId ? ("sticker" as const) : ("text" as const),
+                kind: lastMessage.gif
+                  ? ("gif" as const)
+                  : lastMessage.stickerStorageId
+                    ? ("sticker" as const)
+                    : lastMessage.voice
+                      ? ("voice" as const)
+                      : lastMessage.image
+                        ? ("image" as const)
+                        : ("text" as const),
+                mentionsMe: (lastMessage.mentions ?? []).includes(me._id),
                 mine: lastMessage.authorId === me._id,
                 authorName: members.find((m) => m._id === lastMessage.authorId)?.displayName ?? "",
               }
             : null,
           unreadCount: unread.filter((m) => m.authorId !== me._id).length,
+          unreadMentions: unread.filter((m) => m.authorId !== me._id && (m.mentions ?? []).includes(me._id)).length,
+          muted: membership.muted ?? false,
         };
       })
     );
@@ -112,6 +126,7 @@ export const get = query({
       avatarUrl: conversation.kind === "direct" ? (other?.avatarUrl ?? null) : null,
       members,
       myRole: membership.role,
+      muted: membership.muted ?? false,
     };
   },
 });
@@ -238,7 +253,12 @@ export const leaveGroup = mutation({
         .query("messages")
         .withIndex("by_conversation", (q) => q.eq("conversationId", conversationId))
         .collect();
-      for (const m of messages) await ctx.db.delete(m._id);
+      for (const m of messages) await deleteMessageCascade(ctx, m);
+      const typing = await ctx.db
+        .query("typing")
+        .withIndex("by_conversation", (q) => q.eq("conversationId", conversationId))
+        .collect();
+      for (const t of typing) await ctx.db.delete(t._id);
       await ctx.db.delete(conversationId);
       return;
     }
@@ -255,5 +275,14 @@ export const markRead = mutation({
     const me = await requireApprovedUser(ctx);
     const membership = await getMembership(ctx, conversationId, me._id);
     if (membership !== null) await ctx.db.patch(membership._id, { lastReadAt: Date.now() });
+  },
+});
+
+export const setMuted = mutation({
+  args: { conversationId: v.id("conversations"), muted: v.boolean() },
+  handler: async (ctx, { conversationId, muted }) => {
+    const me = await requireApprovedUser(ctx);
+    const membership = await requireMembership(ctx, conversationId, me._id);
+    await ctx.db.patch(membership._id, { muted: muted || undefined });
   },
 });

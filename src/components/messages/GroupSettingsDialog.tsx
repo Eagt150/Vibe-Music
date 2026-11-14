@@ -6,7 +6,8 @@ import { useLocale } from "@/i18n/LocaleContext";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import { TextField } from "@/components/ui/TextField";
-import { UserAvatar } from "@/components/ui/UserAvatar";
+import { UserRow } from "@/components/user/UserRow";
+import { useUiState } from "@/context/UiStateContext";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { FriendPicker } from "./FriendPicker";
 import { toggleIn } from "@/lib/toggleIn";
@@ -22,6 +23,7 @@ interface GroupSettingsDialogProps {
 export function GroupSettingsDialog({ conversation, myId, onClose, onLeft }: GroupSettingsDialogProps) {
   const { t } = useLocale();
   const isAdmin = conversation.myRole === "admin";
+  const { openProfile } = useUiState();
   const lists = useQuery(api.friends.list, isAdmin ? {} : "skip");
   const rename = useMutation(api.conversations.renameGroup);
   const addMembers = useMutation(api.conversations.addMembers);
@@ -58,21 +60,19 @@ export function GroupSettingsDialog({ conversation, myId, onClose, onLeft }: Gro
           <div className="text-sm font-bold text-text-dim mb-1.5">{t("groups.membersTitle")}</div>
           <div className="flex flex-col gap-0.5 max-h-52 overflow-y-auto -mx-1">
             {conversation.members.map((m) => (
-              <div key={m._id} className="flex items-center gap-3 px-1 py-1.5">
-                <UserAvatar name={m.displayName} url={m.avatarUrl} size={32} />
-                <div className="flex-1 min-w-0">
-                  <div className="font-bold text-base truncate">
-                    {m.displayName}
-                    {m.role === "admin" && <span className="ml-1.5 text-xs font-semibold text-accent">{t("groups.admin")}</span>}
-                  </div>
-                  <div className="text-xs text-text-dim truncate">@{m.username}</div>
-                </div>
+              <UserRow
+                key={m._id}
+                user={m}
+                avatarSize={32}
+                subtitle={m.role === "admin" ? `@${m.username} · ${t("groups.admin")}` : `@${m.username}`}
+                onClick={() => openProfile(m._id)}
+              >
                 {isAdmin && m._id !== myId && (
                   <Button size="sm" variant="ghost" onClick={() => void removeMember({ conversationId: conversation._id, userId: m._id })}>
                     {t("groups.removeMember")}
                   </Button>
                 )}
-              </div>
+              </UserRow>
             ))}
           </div>
         </div>

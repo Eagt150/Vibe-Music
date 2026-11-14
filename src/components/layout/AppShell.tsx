@@ -8,6 +8,7 @@ import { useIsMobile } from "@/hooks/useMediaQuery";
 import { NavRail } from "@/components/nav/NavRail";
 import { MessagesView } from "@/components/messages/MessagesView";
 import { AdminView } from "@/components/admin/AdminView";
+import { ProfileCardModal } from "@/components/user/ProfileCardModal";
 import { Sidebar } from "@/components/sidebar/Sidebar";
 import { HomeView } from "@/components/home/HomeView";
 import { PlaylistView } from "@/components/playlist/PlaylistView";
@@ -64,6 +65,7 @@ export function AppShell() {
       <QueuePanel />
       <AdSlot />
       <ImportProgressToast />
+      <ProfileCardModal />
     </div>
   );
 }
