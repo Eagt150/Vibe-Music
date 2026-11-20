@@ -224,6 +224,8 @@ export const getProfile = query({
     if (me === null) return null;
     const user = await ctx.db.get(userId);
     if (user === null || user.status !== "approved") return null;
+    // The trading bot is private to the admin.
+    if (user.isBot && me.role !== "admin") return null;
 
     const [mine, theirs] = await Promise.all([friendIdsOf(ctx, me._id), friendIdsOf(ctx, userId)]);
     const mutualIds = [...theirs].filter((id) => mine.has(id) && id !== me._id);
