@@ -24,7 +24,7 @@ import { cn } from "@/lib/cn";
 
 const SYMBOL = "BTCUSDT";
 const DATA_URL = "https://data-api.binance.vision/api/v3/klines";
-const INTERVALS = ["5m", "1h", "4h", "1d"] as const;
+const INTERVALS = ["1m", "5m", "1h", "4h", "1d"] as const;
 type Interval = (typeof INTERVALS)[number];
 const POLL_MS = 5000;
 // The chart library draws times in UTC; shifting by the local offset makes the
@@ -208,7 +208,7 @@ export function TradingChart({ onClose }: { onClose: () => void }) {
       }
     }
     // Markers must be sorted and snapped to the candles of the current interval.
-    const step = { "5m": 300, "1h": 3600, "4h": 14400, "1d": 86400 }[interval];
+    const step = { "1m": 60, "5m": 300, "1h": 3600, "4h": 14400, "1d": 86400 }[interval];
     markersRef.current?.setMarkers(
       markers
         // Snap to the candle the mark falls in (candles start on UTC boundaries).
