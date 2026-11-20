@@ -12,9 +12,11 @@ import type * as auth from "../auth.js";
 import type * as conversations from "../conversations.js";
 import type * as crons from "../crons.js";
 import type * as friends from "../friends.js";
+import type * as http from "../http.js";
 import type * as lib from "../lib.js";
 import type * as messages from "../messages.js";
 import type * as stickers from "../stickers.js";
+import type * as tradingBot from "../tradingBot.js";
 import type * as typing from "../typing.js";
 import type * as users from "../users.js";
 
@@ -29,9 +31,11 @@ declare const fullApi: ApiFromModules<{
   conversations: typeof conversations;
   crons: typeof crons;
   friends: typeof friends;
+  http: typeof http;
   lib: typeof lib;
   messages: typeof messages;
   stickers: typeof stickers;
+  tradingBot: typeof tradingBot;
   typing: typeof typing;
   users: typeof users;
 }>;

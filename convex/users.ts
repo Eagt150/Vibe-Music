@@ -7,6 +7,7 @@ import {
   MAX_BIO_LENGTH,
   MAX_DISPLAY_NAME_LENGTH,
   fileUrl,
+  TRADING_BOT_USERNAME,
   USERNAME_PATTERN,
   getApprovedUser,
   getCurrentUser,
@@ -32,7 +33,7 @@ export const createUser = internalMutation({
 async function syncUsername(ctx: MutationCtx, user: Doc<"users">) {
   const username = await ctx.runQuery(components.authUsername.public.getUsername, { userId: user._id });
   if (username === null) return;
-  if (!USERNAME_PATTERN.test(username)) {
+  if (!USERNAME_PATTERN.test(username) || username === TRADING_BOT_USERNAME) {
     // The login screen only sends valid usernames; anything else was sent
     // around it, so the account never gets in.
     if (user.status !== "rejected" || user.username !== username) {

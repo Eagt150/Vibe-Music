@@ -57,7 +57,7 @@ export const search = query({
 
     const results = await Promise.all(
       candidates
-        .filter((u) => u._id !== me._id && u.status === "approved")
+        .filter((u) => u._id !== me._id && u.status === "approved" && !u.isBot)
         .slice(0, 10)
         .map(async (u) => {
           const friendship = await getFriendship(ctx, me._id, u._id);
@@ -82,7 +82,7 @@ export const sendRequest = mutation({
     const me = await requireApprovedUser(ctx);
     if (userId === me._id) throw new ConvexError("CANNOT_ADD_SELF");
     const other = await ctx.db.get(userId);
-    if (other === null || other.status !== "approved") throw new ConvexError("USER_NOT_FOUND");
+    if (other === null || other.status !== "approved" || other.isBot) throw new ConvexError("USER_NOT_FOUND");
 
     const existing = await getFriendship(ctx, me._id, userId);
     if (existing !== null) {

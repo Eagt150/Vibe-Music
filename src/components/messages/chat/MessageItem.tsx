@@ -9,6 +9,7 @@ import { formatChatTime, formatRemaining } from "@/lib/chatTime";
 import { REACTION_EMOJIS } from "@/lib/reactions";
 import { cn } from "@/lib/cn";
 import { VoicePlayer } from "./VoicePlayer";
+import { TradeOfferCard } from "./TradeOfferCard";
 
 export type ChatMessage = FunctionReturnType<typeof api.messages.list>[number];
 type Member = NonNullable<FunctionReturnType<typeof api.conversations.get>>["members"][number];
@@ -194,6 +195,9 @@ export function MessageItem({
                 {renderBody(m.body, usernames)}
                 {m.editedAt && <span className="text-xs text-text-faint ml-1.5">{t("messages.edited")}</span>}
               </div>
+            )}
+            {m.tradeOffer && (
+              <TradeOfferCard messageId={m._id} offer={m.tradeOffer} canAnswer={!mine && (members.get(myId)?.isAdmin ?? false)} />
             )}
           </>
         )}

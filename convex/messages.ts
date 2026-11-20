@@ -16,6 +16,7 @@ import {
   requireApprovedUser,
   requireMembership,
 } from "./lib";
+import { forwardToBot } from "./tradingBot";
 
 const PAGE_SIZE = 200;
 const RATE_LIMIT_WINDOW_MS = 10_000;
@@ -93,6 +94,7 @@ export const list = query({
               : null,
           editedAt: m.editedAt ?? null,
           mentions: m.mentions ?? [],
+          tradeOffer: m.tradeOffer ?? null,
           reactions: perEmoji
             ? [...perEmoji.entries()].map(([emoji, userIds]) => ({
                 emoji,
@@ -179,7 +181,9 @@ const vReplyTo = v.optional(v.id("messages"));
 export const send = mutation({
   args: { conversationId: v.id("conversations"), body: v.string(), replyToId: vReplyTo },
   handler: async (ctx, { conversationId, body, replyToId }) => {
-    await insertMessage(ctx, conversationId, { body: cleanText(body) }, replyToId);
+    const text = cleanText(body);
+    const me = await insertMessage(ctx, conversationId, { body: text }, replyToId);
+    await forwardToBot(ctx, conversationId, me, text);
   },
 });
 
