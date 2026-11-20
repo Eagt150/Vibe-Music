@@ -14,6 +14,8 @@ export const MAX_BIO_LENGTH = 190;
 export const MAX_VOICE_MS = 60_000;
 export const MAX_VOICE_BYTES = 2 * 1024 * 1024;
 export const MAX_CHAT_IMAGE_BYTES = 8 * 1024 * 1024;
+/** Reserved for the trading bot (convex/tradingBot.ts): nobody can sign up with it. */
+export const TRADING_BOT_USERNAME = "trading";
 export const HEX_COLOR = /^#[0-9a-f]{6}$/i;
 
 // Lowercase letters, digits, "_" and "." — so "@name" is unambiguous to type
@@ -64,6 +66,7 @@ export type PublicUser = {
   nameColor2: string | null;
   tag: { emoji: string; text: string } | null;
   isAdmin: boolean;
+  isBot: boolean;
   nameplateUrl: string | null;
   nameplateStillUrl: string | null;
 };
@@ -90,6 +93,7 @@ export async function toPublicUser(ctx: Ctx, user: Doc<"users">): Promise<Public
     nameColor2: user.nameColor2 ?? null,
     tag: user.tagText ? { emoji: user.tagEmoji ?? "", text: user.tagText } : null,
     isAdmin: user.role === "admin",
+    isBot: user.isBot === true,
     nameplateUrl,
     nameplateStillUrl,
   };

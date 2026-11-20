@@ -74,6 +74,7 @@ export function Composer({ conversationId, conversation, myId, replyTo, onCancel
           : null,
         editedAt: null,
         mentions: [],
+        tradeOffer: null,
         reactions: [],
         sentAt,
         expiresAt: sentAt + MESSAGE_TTL_MS,

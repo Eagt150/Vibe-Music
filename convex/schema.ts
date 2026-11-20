@@ -36,6 +36,9 @@ export default defineSchema({
     // admin approves it. Only "approved" users can use messaging.
     status: v.union(v.literal("pending"), v.literal("approved"), v.literal("rejected")),
     role: v.union(v.literal("admin"), v.literal("user")),
+    // Bots (the "trading" bot) have no login: they post through an HTTP
+    // endpoint guarded by a secret token (see convex/http.ts).
+    isBot: v.optional(v.boolean()),
   })
     .index("by_username", ["username"])
     .index("by_status", ["status"]),
@@ -92,6 +95,16 @@ export default defineSchema({
     editedAt: v.optional(v.number()),
     // Users @mentioned in the text (resolved against the chat's members).
     mentions: v.optional(v.array(v.id("users"))),
+    // A trading bot alert with "Enter / Skip" buttons, answerable until
+    // expiresAt. The answer is queued in botInbox for the bot to pick up.
+    tradeOffer: v.optional(
+      v.object({
+        offerId: v.string(),
+        expiresAt: v.number(),
+        decision: v.optional(v.union(v.literal("enter"), v.literal("skip"))),
+        decidedAt: v.optional(v.number()),
+      })
+    ),
   })
     .index("by_conversation", ["conversationId"])
     .index("by_author", ["authorId"]),
@@ -115,6 +128,15 @@ export default defineSchema({
     .index("by_conversation", ["conversationId"])
     .index("by_conversation_user", ["conversationId", "userId"])
     .index("by_until", ["until"]),
+
+  // What the admin told the trading bot (offer answers and chat commands),
+  // waiting for the bot to fetch and acknowledge it.
+  botInbox: defineTable({
+    kind: v.union(v.literal("decision"), v.literal("command")),
+    offerId: v.optional(v.string()),
+    decision: v.optional(v.union(v.literal("enter"), v.literal("skip"))),
+    text: v.optional(v.string()),
+  }),
 
   // A user's sticker collection. Saving a friend's sticker adds a row that
   // points at the same file, so the file is deleted only when no collection
