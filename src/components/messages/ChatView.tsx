@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery } from "convex/react";
-import { ArrowLeft, Bell, BellOff, Clock, Settings2, X } from "lucide-react";
+import { ArrowLeft, Bell, BellOff, CandlestickChart, Clock, Settings2, X } from "lucide-react";
 import { api } from "../../../convex/_generated/api";
 import { useLocale } from "@/i18n/LocaleContext";
 import { useUiState } from "@/context/UiStateContext";
@@ -17,6 +17,9 @@ import { GroupSettingsDialog } from "./GroupSettingsDialog";
 import { MessageItem, type ChatMessage } from "./chat/MessageItem";
 import { Composer } from "./chat/Composer";
 import type { ConversationId } from "./types";
+
+// The chart library is only needed in the trading bot chat.
+const TradingChart = lazy(() => import("./trading/TradingChart").then((m) => ({ default: m.TradingChart })));
 
 // Consecutive messages from one author closer than this share one header.
 const GROUP_GAP_MS = 5 * 60 * 1000;
@@ -48,6 +51,7 @@ export function ChatView({ conversationId, myId, onBack, onLeft }: ChatViewProps
   const [lightbox, setLightbox] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [headerHover, setHeaderHover] = useState(false);
+  const [chartOpen, setChartOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // The server already hides messages older than 3 days, but a chat left open
@@ -168,6 +172,11 @@ export function ChatView({ conversationId, myId, onBack, onLeft }: ChatViewProps
                 <div className="text-sm text-text-dim truncate">{subtitle}</div>
               </div>
             </button>
+            {conversation.kind === "direct" && other?.isBot && (
+              <IconButton variant="solid" onClick={() => setChartOpen(true)} aria-label="Gráfico" title="Gráfico de operaciones">
+                <CandlestickChart size={15} />
+              </IconButton>
+            )}
             <IconButton
               variant="solid"
               onClick={() => void setMuted({ conversationId, muted: !conversation.muted })}
@@ -246,6 +255,11 @@ export function ChatView({ conversationId, myId, onBack, onLeft }: ChatViewProps
 
       {settingsOpen && conversation && (
         <GroupSettingsDialog conversation={conversation} myId={myId} onClose={() => setSettingsOpen(false)} onLeft={onLeft} />
+      )}
+      {chartOpen && (
+        <Suspense fallback={null}>
+          <TradingChart onClose={() => setChartOpen(false)} />
+        </Suspense>
       )}
       {deleting && (
         <ConfirmDialog

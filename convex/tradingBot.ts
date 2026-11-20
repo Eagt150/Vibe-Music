@@ -1,13 +1,16 @@
 import { ConvexError, v } from "convex/values";
-import { internalMutation, mutation, type MutationCtx, type QueryCtx } from "./_generated/server";
+import { internalMutation, mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
+import { vTrade } from "./schema";
 import type { Doc, Id } from "./_generated/dataModel";
-import { MAX_MESSAGE_LENGTH, TRADING_BOT_USERNAME, orderedPair, requireApprovedUser, requireMembership } from "./lib";
+import { MAX_MESSAGE_LENGTH, TRADING_BOT_USERNAME, getApprovedUser, orderedPair, requireApprovedUser, requireMembership } from "./lib";
 
 // The "trading" bot: a user with no login that only talks to the admin. The
 // program that watches the market (it runs on the admin's own computer) posts
 // through convex/http.ts and reads the admin's answers from `botInbox`.
-// It only ever does demo/paper trading; nothing here touches real money.
+// It only ever does paper trading (simulated); nothing here touches real money.
 
+const BOT_BIO =
+  "Avisa setups de BTC según el curso y opera en una cuenta de práctica (sin dinero real) solo si tú pulsas Entrar.";
 const MAX_OFFER_TTL_MS = 30 * 60 * 1000;
 const INBOX_PAGE = 50;
 
@@ -45,10 +48,12 @@ async function ensureBotChat(ctx: MutationCtx) {
       isBot: true,
       tagEmoji: "📈",
       tagText: "BOT",
-      bio: "Avisa setups de BTC según el curso y opera en BingX Demo (dinero de práctica) solo si tú pulsas Entrar.",
+      bio: BOT_BIO,
       nameColor: "#22c55e",
     });
     bot = (await ctx.db.get(id))!;
+  } else if (bot.bio !== BOT_BIO) {
+    await ctx.db.patch(bot._id, { bio: BOT_BIO });
   }
   const directKey = orderedPair(bot._id, admin._id).join(":");
   const existing = await ctx.db
@@ -135,5 +140,34 @@ export const takeInbox = internalMutation({
     }
     const rows = await ctx.db.query("botInbox").order("asc").take(INBOX_PAGE);
     return rows.map((r) => ({ id: r._id, kind: r.kind, offerId: r.offerId, decision: r.decision, text: r.text }));
+  },
+});
+
+/** Called by the HTTP endpoint: replaces the paper account snapshot. */
+export const saveSnapshot = internalMutation({
+  args: {
+    balance: v.number(),
+    startBalance: v.number(),
+    currency: v.string(),
+    open: v.array(vTrade),
+    closed: v.array(vTrade),
+  },
+  handler: async (ctx, args) => {
+    const snapshot = { ...args, open: args.open.slice(0, 10), closed: args.closed.slice(-100) };
+    const existing = await ctx.db.query("tradingSnapshot").first();
+    if (existing) await ctx.db.replace(existing._id, snapshot);
+    else await ctx.db.insert("tradingSnapshot", snapshot);
+  },
+});
+
+/** The paper account for the chart. Admin only, like the bot itself. */
+export const snapshot = query({
+  args: {},
+  handler: async (ctx) => {
+    const me = await getApprovedUser(ctx);
+    if (me === null || me.role !== "admin") return null;
+    const row = await ctx.db.query("tradingSnapshot").first();
+    if (row === null) return null;
+    return { balance: row.balance, startBalance: row.startBalance, currency: row.currency, open: row.open, closed: row.closed };
   },
 });

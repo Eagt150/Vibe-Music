@@ -67,4 +67,19 @@ http.route({
   }),
 });
 
+http.route({
+  path: "/bot/trading/state",
+  method: "POST",
+  handler: httpAction(async (ctx, req) => {
+    if (!authorized(req)) return json({ error: "unauthorized" }, 401);
+    const data = await readJson(req);
+    try {
+      await ctx.runMutation(internal.tradingBot.saveSnapshot, data as never);
+      return json({ ok: true });
+    } catch (err) {
+      return json({ error: String(err) }, 400);
+    }
+  }),
+});
+
 export default http;
