@@ -5,6 +5,22 @@ import { v } from "convex/values";
 // never leave the device (IndexedDB, see src/lib/db) — nothing in this schema
 // stores audio.
 
+export const vTrade = v.object({
+  id: v.string(),
+  side: v.union(v.literal("long"), v.literal("short")),
+  entry: v.number(),
+  stop: v.number(),
+  tp: v.number(),
+  qty: v.number(),
+  margin: v.number(),
+  leverage: v.number(),
+  openedAt: v.number(),
+  exit: v.optional(v.number()),
+  closedAt: v.optional(v.number()),
+  result: v.optional(v.string()),
+  pnl: v.optional(v.number()),
+});
+
 export default defineSchema({
   // The row id is what the auth core stores as the user of a session. The
   // username itself lives in the `authUsername` component and is copied here
@@ -136,6 +152,16 @@ export default defineSchema({
     offerId: v.optional(v.string()),
     decision: v.optional(v.union(v.literal("enter"), v.literal("skip"))),
     text: v.optional(v.string()),
+  }),
+
+  // The trading bot's paper account as last reported by the bot program:
+  // one row, replaced on every change. Only the admin can read it.
+  tradingSnapshot: defineTable({
+    balance: v.number(),
+    startBalance: v.number(),
+    currency: v.string(),
+    open: v.array(vTrade),
+    closed: v.array(vTrade),
   }),
 
   // A user's sticker collection. Saving a friend's sticker adds a row that
