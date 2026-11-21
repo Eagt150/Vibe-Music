@@ -1,6 +1,7 @@
 import { ConvexError, v } from "convex/values";
 import { internalMutation, mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import { vTrade } from "./schema";
+import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { MAX_MESSAGE_LENGTH, TRADING_BOT_USERNAME, getApprovedUser, orderedPair, requireApprovedUser, requireMembership } from "./lib";
 
@@ -79,7 +80,7 @@ export const post = internalMutation({
   handler: async (ctx, { body, offer }) => {
     const text = body.trim().slice(0, MAX_MESSAGE_LENGTH);
     if (!text) throw new ConvexError("EMPTY_MESSAGE");
-    const { bot, conversationId } = await ensureBotChat(ctx);
+    const { bot, admin, conversationId } = await ensureBotChat(ctx);
     const messageId = await ctx.db.insert("messages", {
       conversationId,
       authorId: bot._id,
@@ -92,6 +93,15 @@ export const post = internalMutation({
             },
           }
         : {}),
+    });
+    // Wake the admin's phone. A trade alert gets its own notification; the
+    // rest (reports, start/stop) replace each other.
+    await ctx.scheduler.runAfter(0, internal.pushNode.sendToUser, {
+      userId: admin._id,
+      title: offer ? "📈 Trading · ¡Alerta de entrada!" : "📈 Trading",
+      body: text,
+      tag: offer ? `offer-${offer.offerId.slice(0, 64)}` : "trading",
+      conversationId,
     });
     return { messageId };
   },

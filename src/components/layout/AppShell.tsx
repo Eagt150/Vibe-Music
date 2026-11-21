@@ -4,6 +4,7 @@ import { useUiState } from "@/context/UiStateContext";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { useConfirmBeforeUnload } from "@/hooks/useConfirmBeforeUnload";
 import { useMessageNotifications } from "@/hooks/useMessageNotifications";
+import { useOpenChatFromPush } from "@/hooks/useOpenChatFromPush";
 import { useIsMobile } from "@/hooks/useMediaQuery";
 import { NavRail } from "@/components/nav/NavRail";
 import { MessagesView } from "@/components/messages/MessagesView";
@@ -27,6 +28,7 @@ export function AppShell() {
   useKeyboardShortcuts();
   useConfirmBeforeUnload();
   useMessageNotifications();
+  useOpenChatFromPush();
 
   // If the currently viewed playlist gets deleted, bounce back to Home
   // instead of rendering a stale/blank playlist view.
