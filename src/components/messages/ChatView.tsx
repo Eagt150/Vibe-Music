@@ -14,6 +14,7 @@ import { convexErrorCode } from "@/lib/convexError";
 import { cn } from "@/lib/cn";
 import { MAX_STICKERS } from "@/lib/stickerLimits";
 import { GroupSettingsDialog } from "./GroupSettingsDialog";
+import { PushToggle } from "./trading/PushToggle";
 import { MessageItem, type ChatMessage } from "./chat/MessageItem";
 import { Composer } from "./chat/Composer";
 import type { ConversationId } from "./types";
@@ -177,6 +178,7 @@ export function ChatView({ conversationId, myId, onBack, onLeft }: ChatViewProps
                 <CandlestickChart size={15} />
               </IconButton>
             )}
+            {conversation.kind === "direct" && other?.isBot && <PushToggle />}
             <IconButton
               variant="solid"
               onClick={() => void setMuted({ conversationId, muted: !conversation.muted })}

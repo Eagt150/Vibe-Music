@@ -164,6 +164,17 @@ export default defineSchema({
     closed: v.array(vTrade),
   }),
 
+  // Web Push subscriptions (one per browser/phone that turned notifications
+  // on). Used to wake the admin's phone when the trading bot writes.
+  pushSubscriptions: defineTable({
+    userId: v.id("users"),
+    endpoint: v.string(),
+    p256dh: v.string(),
+    auth: v.string(),
+  })
+    .index("by_user", ["userId"])
+    .index("by_endpoint", ["endpoint"]),
+
   // A user's sticker collection. Saving a friend's sticker adds a row that
   // points at the same file, so the file is deleted only when no collection
   // uses it any more (see stickers.deleteFileIfUnused).

@@ -33,6 +33,8 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ["**/*.{js,css,html,png,svg,woff2}"],
+        // Web Push handlers (trading bot alerts on the phone).
+        importScripts: ["push-sw.js"],
       },
     }),
   ],
