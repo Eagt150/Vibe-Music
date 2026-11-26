@@ -1,6 +1,6 @@
 import { ConvexError, v } from "convex/values";
 import { internalMutation, mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
-import { vTrade } from "./schema";
+import { vPool, vTrade } from "./schema";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { MAX_MESSAGE_LENGTH, TRADING_BOT_USERNAME, getApprovedUser, orderedPair, requireApprovedUser, requireMembership } from "./lib";
@@ -161,9 +161,10 @@ export const saveSnapshot = internalMutation({
     currency: v.string(),
     open: v.array(vTrade),
     closed: v.array(vTrade),
+    pools: v.optional(v.array(vPool)),
   },
   handler: async (ctx, args) => {
-    const snapshot = { ...args, open: args.open.slice(0, 10), closed: args.closed.slice(-100) };
+    const snapshot = { ...args, open: args.open.slice(0, 10), closed: args.closed.slice(-100), pools: args.pools?.slice(0, 10) };
     const existing = await ctx.db.query("tradingSnapshot").first();
     if (existing) await ctx.db.replace(existing._id, snapshot);
     else await ctx.db.insert("tradingSnapshot", snapshot);
@@ -178,6 +179,13 @@ export const snapshot = query({
     if (me === null || me.role !== "admin") return null;
     const row = await ctx.db.query("tradingSnapshot").first();
     if (row === null) return null;
-    return { balance: row.balance, startBalance: row.startBalance, currency: row.currency, open: row.open, closed: row.closed };
+    return {
+      balance: row.balance,
+      startBalance: row.startBalance,
+      currency: row.currency,
+      open: row.open,
+      closed: row.closed,
+      pools: row.pools ?? [],
+    };
   },
 });
