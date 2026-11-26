@@ -18,11 +18,13 @@ import {
 import { api } from "../../../../convex/_generated/api";
 import { cn } from "@/lib/cn";
 
-// Live BTC/USDT chart (public Binance market data, the same feed as
-// TradingView's BINANCE:BTCUSDT) with the trading bot's paper trades drawn on
-// it: open trades as entry/stop/target lines, closed ones as green/red marks.
+// Live BTC/USDT or ETH/USDT chart (public Binance market data, the same feed as
+// TradingView's BINANCE:BTCUSDT) with the trading bot's practice activity drawn
+// on it. BTC: open trades as entry/stop/target lines, closed ones as green/red
+// marks. ETH: the ranges of the practice liquidity pools.
 
-const SYMBOL = "BTCUSDT";
+const SYMBOLS = { BTC: "BTCUSDT", ETH: "ETHUSDT" } as const;
+type Coin = keyof typeof SYMBOLS;
 const DATA_URL = "https://data-api.binance.vision/api/v3/klines";
 const INTERVALS = ["1m", "5m", "1h", "4h", "1d"] as const;
 type Interval = (typeof INTERVALS)[number];
@@ -40,8 +42,8 @@ interface Candle {
   close: number;
 }
 
-async function fetchCandles(interval: Interval, limit: number): Promise<Candle[]> {
-  const res = await fetch(`${DATA_URL}?symbol=${SYMBOL}&interval=${interval}&limit=${limit}`);
+async function fetchCandles(coin: Coin, interval: Interval, limit: number): Promise<Candle[]> {
+  const res = await fetch(`${DATA_URL}?symbol=${SYMBOLS[coin]}&interval=${interval}&limit=${limit}`);
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const rows = (await res.json()) as [number, string, string, string, string][];
   return rows.map((k) => ({
@@ -76,6 +78,7 @@ export function TradingChart({ onClose }: { onClose: () => void }) {
   // Stop/target of open trades, so the price scale always shows them.
   const levelsRef = useRef<number[]>([]);
   const [interval, setInterval_] = useState<Interval>("5m");
+  const [coin, setCoin] = useState<Coin>("BTC");
   const [price, setPrice] = useState<number | null>(null);
   const [error, setError] = useState(false);
 
@@ -132,7 +135,7 @@ export function TradingChart({ onClose }: { onClose: () => void }) {
     }
     async function load() {
       try {
-        const all = await fetchCandles(interval, 500);
+        const all = await fetchCandles(coin, interval, 500);
         if (!alive) return;
         candlesRef.current = all;
         candleRef.current?.setData(all);
@@ -146,7 +149,7 @@ export function TradingChart({ onClose }: { onClose: () => void }) {
     }
     async function tick() {
       try {
-        const last = await fetchCandles(interval, 2);
+        const last = await fetchCandles(coin, interval, 2);
         if (!alive) return;
         const all = candlesRef.current;
         for (const c of last) {
@@ -161,13 +164,15 @@ export function TradingChart({ onClose }: { onClose: () => void }) {
         if (alive) setError(true);
       }
     }
+    candlesRef.current = [];
+    setPrice(null);
     void load();
     const id = window.setInterval(() => void tick(), POLL_MS);
     return () => {
       alive = false;
       window.clearInterval(id);
     };
-  }, [interval]);
+  }, [interval, coin]);
 
   // Trades: price lines for open ones, markers for every entry/exit.
   useEffect(() => {
@@ -175,11 +180,24 @@ export function TradingChart({ onClose }: { onClose: () => void }) {
     if (!series) return;
     for (const l of linesRef.current) series.removePriceLine(l);
     linesRef.current = [];
-    levelsRef.current = snapshot ? snapshot.open.flatMap((t) => [t.stop, t.tp]) : [];
     if (!snapshot) {
+      levelsRef.current = [];
       markersRef.current?.setMarkers([]);
       return;
     }
+    if (coin === "ETH") {
+      levelsRef.current = snapshot.pools.flatMap((p) => [p.lo, p.hi]);
+      for (const p of snapshot.pools) {
+        const color = p.inside ? "#22c55e" : "#9ca3af";
+        linesRef.current.push(
+          series.createPriceLine({ price: p.hi, color, lineWidth: 2, lineStyle: 2, axisLabelVisible: true, title: `Pool #${p.n} máx` }),
+          series.createPriceLine({ price: p.lo, color, lineWidth: 2, lineStyle: 2, axisLabelVisible: true, title: `Pool #${p.n} mín` })
+        );
+      }
+      markersRef.current?.setMarkers([]);
+      return;
+    }
+    levelsRef.current = snapshot.open.flatMap((t) => [t.stop, t.tp]);
     for (const t of snapshot.open) {
       const tag = sideLabel(t.side);
       linesRef.current.push(
@@ -218,7 +236,7 @@ export function TradingChart({ onClose }: { onClose: () => void }) {
         })
         .sort((a, b) => (a.time as number) - (b.time as number))
     );
-  }, [snapshot, interval]);
+  }, [snapshot, interval, coin]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
@@ -244,8 +262,22 @@ export function TradingChart({ onClose }: { onClose: () => void }) {
   return (
     <div className="fixed inset-0 z-[85] bg-bg flex flex-col">
       <div className="flex items-center gap-3 px-3.5 md:px-5 py-3 border-b border-border flex-wrap">
-        <div className="font-extrabold text-md">BTC/USDT</div>
-        {price !== null && <div className="font-bold tabular-nums">{fmt(price, 1)}</div>}
+        <div className="flex gap-1 bg-surface-alt rounded-md p-0.5">
+          {(Object.keys(SYMBOLS) as Coin[]).map((c) => (
+            <button
+              key={c}
+              type="button"
+              onClick={() => setCoin(c)}
+              className={cn(
+                "px-2.5 py-1 rounded-sm text-sm font-extrabold cursor-pointer",
+                c === coin ? "bg-accent text-accent-text" : "text-text-dim hover:text-text"
+              )}
+            >
+              {c}/USDT
+            </button>
+          ))}
+        </div>
+        {price !== null && <div className="font-bold tabular-nums">{fmt(price, coin === "ETH" ? 2 : 1)}</div>}
         <div className="flex gap-1 bg-surface-alt rounded-md p-0.5">
           {INTERVALS.map((iv) => (
             <button
@@ -276,7 +308,31 @@ export function TradingChart({ onClose }: { onClose: () => void }) {
         </button>
       </div>
 
-      {snapshot && stats && (
+      {coin === "ETH" && snapshot && (
+        <div className="flex gap-x-5 gap-y-1 flex-wrap px-3.5 md:px-5 py-2 text-sm border-b border-border">
+          {snapshot.pools.length === 0 ? (
+            <span className="text-text-dim">
+              No tienes pools de práctica abiertos. En el chat: «pool señal» o «pool abrir 1500 1900 100».
+            </span>
+          ) : (
+            snapshot.pools.map((p) => {
+              const res = p.value - p.capital;
+              return (
+                <span key={p.n}>
+                  Pool #{p.n} ({fmt(p.lo, 0)}–{fmt(p.hi, 0)}) {p.inside ? "🟢" : "🔴"}{" "}
+                  <b className="tabular-nums">{fmt(p.value)} USD</b>{" "}
+                  <span className={res >= 0 ? "text-[#22c55e]" : "text-danger"}>
+                    ({res >= 0 ? "+" : ""}
+                    {fmt(res)})
+                  </span>{" "}
+                  · comisiones <b className="tabular-nums">{fmt(p.fees, 3)}</b>
+                </span>
+              );
+            })
+          )}
+        </div>
+      )}
+      {coin === "BTC" && snapshot && stats && (
         <div className="flex gap-x-5 gap-y-1 flex-wrap px-3.5 md:px-5 py-2 text-sm border-b border-border">
           <span>
             Saldo de práctica: <b className="tabular-nums">{fmt(snapshot.balance)} {snapshot.currency}</b>{" "}
@@ -300,7 +356,7 @@ export function TradingChart({ onClose }: { onClose: () => void }) {
           </span>
         </div>
       )}
-      {snapshot === null && (
+      {coin === "BTC" && snapshot === null && (
         <div className="px-3.5 md:px-5 py-2 text-sm text-text-dim border-b border-border">
           Todavía no hay operaciones de práctica.
         </div>

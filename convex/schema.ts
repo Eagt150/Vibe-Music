@@ -21,6 +21,19 @@ export const vTrade = v.object({
   pnl: v.optional(v.number()),
 });
 
+// A practice liquidity pool (ETH/USDC, simulated by the bot program).
+export const vPool = v.object({
+  n: v.number(),
+  kind: v.string(),
+  lo: v.number(),
+  hi: v.number(),
+  capital: v.number(),
+  openedAt: v.number(),
+  value: v.number(),
+  fees: v.number(),
+  inside: v.boolean(),
+});
+
 export default defineSchema({
   // The row id is what the auth core stores as the user of a session. The
   // username itself lives in the `authUsername` component and is copied here
@@ -162,6 +175,7 @@ export default defineSchema({
     currency: v.string(),
     open: v.array(vTrade),
     closed: v.array(vTrade),
+    pools: v.optional(v.array(vPool)),
   }),
 
   // Web Push subscriptions (one per browser/phone that turned notifications
