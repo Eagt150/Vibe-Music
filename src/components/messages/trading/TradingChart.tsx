@@ -197,7 +197,24 @@ export function TradingChart({ onClose }: { onClose: () => void }) {
       markersRef.current?.setMarkers([]);
       return;
     }
-    levelsRef.current = snapshot.open.flatMap((t) => [t.stop, t.tp]);
+    levelsRef.current = [...snapshot.open.flatMap((t) => [t.stop, t.tp]), ...snapshot.grids.flatMap((g) => [g.lo, g.hi])];
+    for (const g of snapshot.grids) {
+      const color = g.inside ? "#a855f7" : "#9ca3af";
+      const step = (g.hi - g.lo) / g.grids;
+      for (let i = 0; i <= g.grids; i++) {
+        const edge = i === 0 || i === g.grids;
+        linesRef.current.push(
+          series.createPriceLine({
+            price: g.lo + step * i,
+            color: edge ? color : `${color}55`,
+            lineWidth: edge ? 2 : 1,
+            lineStyle: edge ? 2 : 3,
+            axisLabelVisible: edge,
+            title: edge ? `Rango #${g.n} ${i === 0 ? "mín" : "máx"}` : "",
+          })
+        );
+      }
+    }
     for (const t of snapshot.open) {
       const tag = sideLabel(t.side);
       linesRef.current.push(
@@ -354,6 +371,20 @@ export function TradingChart({ onClose }: { onClose: () => void }) {
           <span>
             Cerradas: <b>{stats.total}</b> · ganadas <b>{stats.wins}</b>
           </span>
+          {snapshot.grids.map((g) => {
+            const res = g.value - g.capital;
+            return (
+              <span key={g.n}>
+                Rango #{g.n} ({fmt(g.lo, 0)}–{fmt(g.hi, 0)}) {g.inside ? "🟢" : "⏸️"}{" "}
+                <b className="tabular-nums">{fmt(g.value)} USD</b>{" "}
+                <span className={res >= 0 ? "text-[#22c55e]" : "text-danger"}>
+                  ({res >= 0 ? "+" : ""}
+                  {fmt(res)})
+                </span>{" "}
+                · {g.sells} ventas · grid {fmt(g.profit, 3)}
+              </span>
+            );
+          })}
         </div>
       )}
       {coin === "BTC" && snapshot === null && (
