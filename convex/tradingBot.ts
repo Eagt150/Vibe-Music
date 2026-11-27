@@ -1,6 +1,6 @@
 import { ConvexError, v } from "convex/values";
 import { internalMutation, mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
-import { vPool, vTrade } from "./schema";
+import { vGrid, vPool, vTrade } from "./schema";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { MAX_MESSAGE_LENGTH, TRADING_BOT_USERNAME, getApprovedUser, orderedPair, requireApprovedUser, requireMembership } from "./lib";
@@ -162,9 +162,10 @@ export const saveSnapshot = internalMutation({
     open: v.array(vTrade),
     closed: v.array(vTrade),
     pools: v.optional(v.array(vPool)),
+    grids: v.optional(v.array(vGrid)),
   },
   handler: async (ctx, args) => {
-    const snapshot = { ...args, open: args.open.slice(0, 10), closed: args.closed.slice(-100), pools: args.pools?.slice(0, 10) };
+    const snapshot = { ...args, open: args.open.slice(0, 10), closed: args.closed.slice(-100), pools: args.pools?.slice(0, 10), grids: args.grids?.slice(0, 10) };
     const existing = await ctx.db.query("tradingSnapshot").first();
     if (existing) await ctx.db.replace(existing._id, snapshot);
     else await ctx.db.insert("tradingSnapshot", snapshot);
@@ -186,6 +187,7 @@ export const snapshot = query({
       open: row.open,
       closed: row.closed,
       pools: row.pools ?? [],
+      grids: row.grids ?? [],
     };
   },
 });

@@ -21,6 +21,20 @@ export const vTrade = v.object({
   pnl: v.optional(v.number()),
 });
 
+// A practice Spot Grid range on BTC (simulated by the bot program).
+export const vGrid = v.object({
+  n: v.number(),
+  lo: v.number(),
+  hi: v.number(),
+  grids: v.number(),
+  capital: v.number(),
+  openedAt: v.number(),
+  value: v.number(),
+  profit: v.number(),
+  sells: v.number(),
+  inside: v.boolean(),
+});
+
 // A practice liquidity pool (ETH/USDC, simulated by the bot program).
 export const vPool = v.object({
   n: v.number(),
@@ -176,6 +190,7 @@ export default defineSchema({
     open: v.array(vTrade),
     closed: v.array(vTrade),
     pools: v.optional(v.array(vPool)),
+    grids: v.optional(v.array(vGrid)),
   }),
 
   // Web Push subscriptions (one per browser/phone that turned notifications
